@@ -106,27 +106,17 @@ const Login = () => {
   // ✅ FIXED: Proper login flow with corrected async handling
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
-    setLoadingNotifications(false);
+    setLoading(true);
 
     try {
-      console.log('🔑 Attempting login...');
-      
-      // ✅ FIXED: Await login and handle the response properly
+      console.log('Attempting login...');
       await login(email, password);
-      
-      console.log('✅ Login successful');
-      
-      // ✅ FIXED: Add small delay to ensure token is stored before checking notifications
-      setTimeout(async () => {
-        await checkForNotifications();
-      }, 500);
-      
-    } catch (error) {
-      console.error('❌ Login error:', error);
-      setError(error.response?.data?.error || error.message || 'Login failed');
-    } finally {
+      console.log('Login successful, checking notifications...');
+      await checkForNotifications();
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.response?.data?.error || 'Failed to log in. Please check your credentials and try again.');
       setLoading(false);
     }
   };

@@ -36,68 +36,48 @@ class Chat {
     }
   }
 
-  // ✅ FIXED: Simplified getRecentConversations method with correct parameter count
   async getRecentConversations(userId, limit = 20) {
     try {
-      // ✅ FIXED: Ensure parameters are properly converted to integers
       const userIdInt = parseInt(userId);
       const limitInt = parseInt(limit);
 
       const [conversations] = await this.db.execute(
         `SELECT 
-          conversation_data.other_user_id,
-          conversation_data.other_user_first_name,
-          conversation_data.other_user_last_name,
-          conversation_data.other_user_email,
-          conversation_data.other_user_role,
-          conversation_data.last_message,
-          conversation_data.last_message_time,
-          conversation_data.last_sender_id
-         FROM (
-           SELECT DISTINCT
-             CASE 
-               WHEN m.sender_id = ? THEN m.recipient_id 
-               ELSE m.sender_id 
-             END as other_user_id,
-             CASE 
-               WHEN m.sender_id = ? THEN recipient.first_name 
-               ELSE sender.first_name 
-             END as other_user_first_name,
-             CASE 
-               WHEN m.sender_id = ? THEN recipient.last_name 
-               ELSE sender.last_name 
-             END as other_user_last_name,
-             CASE 
-               WHEN m.sender_id = ? THEN recipient.email 
-               ELSE sender.email 
-             END as other_user_email,
-             CASE 
-               WHEN m.sender_id = ? THEN recipient.role 
-               ELSE sender.role 
-             END as other_user_role,
-             m.message_text as last_message,
-             m.created_at as last_message_time,
-             m.sender_id as last_sender_id,
-             ROW_NUMBER() OVER (
-               PARTITION BY 
-                 CASE 
-                   WHEN m.sender_id < m.recipient_id 
-                   THEN CONCAT(m.sender_id, '-', m.recipient_id)
-                   ELSE CONCAT(m.recipient_id, '-', m.sender_id)
-                 END 
-               ORDER BY m.created_at DESC
-             ) as rn
-           FROM messages m
-           JOIN users sender ON m.sender_id = sender.id
-           JOIN users recipient ON m.recipient_id = recipient.id
-           WHERE (m.sender_id = ? OR m.recipient_id = ?)
-             AND sender.is_active = TRUE 
-             AND recipient.is_active = TRUE
-         ) as conversation_data
-         WHERE conversation_data.rn = 1
-         ORDER BY conversation_data.last_message_time DESC
-         LIMIT ?`,
-        [userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, limitInt]
+          other_user.id as other_user_id,
+          other_user.first_name as other_user_first_name,
+          other_user.last_name as other_user_last_name,
+          other_user.email as other_user_email,
+          other_user.role as other_user_role,
+          latest_messages.message_text as last_message,
+          latest_messages.created_at as last_message_time,
+          latest_messages.sender_id as last_sender_id
+        FROM users other_user
+        INNER JOIN (
+          SELECT 
+            CASE 
+              WHEN sender_id = ? THEN recipient_id
+              ELSE sender_id 
+            END as other_user_id,
+            message_text,
+            created_at,
+            sender_id,
+            ROW_NUMBER() OVER (
+              PARTITION BY 
+                CASE 
+                  WHEN sender_id = ? THEN recipient_id
+                  ELSE sender_id 
+                END
+              ORDER BY created_at DESC
+            ) as rn
+          FROM messages
+          WHERE sender_id = ? OR recipient_id = ?
+        ) latest_messages ON other_user.id = latest_messages.other_user_id
+        WHERE latest_messages.rn = 1
+          AND other_user.id != ? 
+          AND other_user.is_active = TRUE
+        ORDER BY latest_messages.created_at DESC
+        LIMIT ?`,
+        [userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, limitInt]
       );
 
       return conversations;

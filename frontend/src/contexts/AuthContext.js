@@ -16,23 +16,34 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchUser();
-    } else {
-      setLoading(false);
-    }
+    const initializeAuth = async () => {
+      console.log('Initializing auth...');
+      const token = localStorage.getItem('token');
+      if (token) {
+        console.log('Token found, setting up axios...');
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        await fetchUser();
+      } else {
+        console.log('No token found');
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const fetchUser = async () => {
     try {
+      console.log('Fetching user data...');
       const response = await axios.get('http://localhost:5000/api/auth/me');
+      console.log('User data fetched:', response.data);
       setUser(response.data.user);
     } catch (error) {
+      console.error('Error fetching user:', error);
       localStorage.removeItem('token');
       delete axios.defaults.headers.common['Authorization'];
     } finally {
+      console.log('Setting loading to false');
       setLoading(false);
     }
   };
