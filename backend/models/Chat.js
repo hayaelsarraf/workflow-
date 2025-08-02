@@ -6,6 +6,7 @@ class Chat {
   // Get conversation between two users
   async getConversation(userId1, userId2, limit = 50, offset = 0) {
     try {
+      // ✅ FIXED: Ensure parameters are properly converted to integers
       const userId1Int = parseInt(userId1);
       const userId2Int = parseInt(userId2);
       const limitInt = parseInt(limit);
@@ -35,9 +36,10 @@ class Chat {
     }
   }
 
-  // ✅ FIXED: Single getRecentConversations method with proper parameter handling
+  // ✅ FIXED: Simplified getRecentConversations method with correct parameter count
   async getRecentConversations(userId, limit = 20) {
     try {
+      // ✅ FIXED: Ensure parameters are properly converted to integers
       const userIdInt = parseInt(userId);
       const limitInt = parseInt(limit);
 
@@ -50,8 +52,7 @@ class Chat {
           conversation_data.other_user_role,
           conversation_data.last_message,
           conversation_data.last_message_time,
-          conversation_data.last_sender_id,
-          COALESCE(unread_counts.unread_count, 0) as unread_count
+          conversation_data.last_sender_id
          FROM (
            SELECT DISTINCT
              CASE 
@@ -93,18 +94,10 @@ class Chat {
              AND sender.is_active = TRUE 
              AND recipient.is_active = TRUE
          ) as conversation_data
-         LEFT JOIN (
-           SELECT 
-             sender_id as other_user_id,
-             COUNT(*) as unread_count
-           FROM messages 
-           WHERE recipient_id = ? AND is_read = FALSE
-           GROUP BY sender_id
-         ) as unread_counts ON conversation_data.other_user_id = unread_counts.other_user_id
          WHERE conversation_data.rn = 1
          ORDER BY conversation_data.last_message_time DESC
          LIMIT ?`,
-        [userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, limitInt]
+        [userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, limitInt]
       );
 
       console.log('📋 Fetched conversations for user', userIdInt, ':', conversations.length);
@@ -127,6 +120,7 @@ class Chat {
     } = messageData;
 
     try {
+      // ✅ FIXED: Ensure parameters are properly converted to integers
       const senderIdInt = parseInt(sender_id);
       const recipientIdInt = parseInt(recipient_id);
 
@@ -160,6 +154,7 @@ class Chat {
   // Mark messages as read
   async markAsRead(userId, otherUserId) {
     try {
+      // ✅ FIXED: Ensure parameters are properly converted to integers
       const userIdInt = parseInt(userId);
       const otherUserIdInt = parseInt(otherUserId);
 
@@ -180,6 +175,7 @@ class Chat {
   // Get unread message count
   async getUnreadCount(userId) {
     try {
+      // ✅ FIXED: Ensure parameters are properly converted to integers
       const userIdInt = parseInt(userId);
 
       const [result] = await this.db.execute(
@@ -199,6 +195,7 @@ class Chat {
   // Delete a message
   async deleteMessage(messageId, userId) {
     try {
+      // ✅ FIXED: Ensure parameters are properly converted to integers
       const messageIdInt = parseInt(messageId);
       const userIdInt = parseInt(userId);
 

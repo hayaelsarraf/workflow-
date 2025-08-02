@@ -1,9 +1,6 @@
 const express = require('express');
 const Chat = require('../models/Chat');
-const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
-const upload = require('../middleware/upload');
-const path = require('path');
 
 const router = express.Router();
 
@@ -12,7 +9,7 @@ router.get('/conversations', authenticate, async (req, res) => {
   try {
     const chatModel = new Chat(req.db);
     const conversations = await chatModel.getRecentConversations(req.user.id);
-
+    
     res.json({
       success: true,
       conversations
@@ -23,23 +20,15 @@ router.get('/conversations', authenticate, async (req, res) => {
   }
 });
 
-// Get conversation with specific user
-router.get('/conversation/:userId', authenticate, async (req, res) => {
+// Get conversation messages
+router.get('/conversation/:otherUserId', authenticate, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { otherUserId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
-
+    
     const chatModel = new Chat(req.db);
-    const messages = await chatModel.getConversation(
-      req.user.id, 
-      parseInt(userId), 
-      parseInt(limit), 
-      parseInt(offset)
-    );
-
-    // Mark messages as read
-    await chatModel.markAsRead(req.user.id, parseInt(userId));
-
+    const messages = await chatModel.getConversation(req.user.id, otherUserId, limit, offset);
+    
     res.json({
       success: true,
       messages
@@ -50,51 +39,22 @@ router.get('/conversation/:userId', authenticate, async (req, res) => {
   }
 });
 
-// Send a message
-// Send a message - ENHANCED with user info
+// Send message
 router.post('/send', authenticate, async (req, res) => {
   try {
     const { recipient_id, message_text, message_type = 'text' } = req.body;
-
-    if (!recipient_id || !message_text?.trim()) {
-      return res.status(400).json({ error: 'Recipient and message are required' });
-    }
-
-    // Verify recipient exists and get their info
-    const userModel = new User(req.db);
-    const recipient = await userModel.findById(recipient_id);
-    if (!recipient) {
-      return res.status(404).json({ error: 'Recipient not found' });
-    }
-
+    
     const chatModel = new Chat(req.db);
     const message = await chatModel.sendMessage({
       sender_id: req.user.id,
-      recipient_id: parseInt(recipient_id),
-      message_text: message_text.trim(),
+      recipient_id,
+      message_text,
       message_type
     });
-
-    // ✅ ENHANCED: Add user info to socket messages
-    const enhancedMessage = {
-      ...message,
-      sender_first_name: req.user.first_name,
-      sender_last_name: req.user.last_name,
-      sender_email: req.user.email,
-      recipient_first_name: recipient.first_name,
-      recipient_last_name: recipient.last_name,
-      recipient_email: recipient.email
-    };
-
-    // Emit to Socket.IO if available
-    if (req.app.get('io')) {
-      req.app.get('io').to(`user_${recipient_id}`).emit('new_message', enhancedMessage);
-      req.app.get('io').to(`user_${req.user.id}`).emit('message_sent', enhancedMessage);
-    }
-
-    res.status(201).json({
+    
+    res.json({
       success: true,
-      message: enhancedMessage
+      message
     });
   } catch (error) {
     console.error('Send message error:', error);
@@ -102,46 +62,27 @@ router.post('/send', authenticate, async (req, res) => {
   }
 });
 
-
-// Send message with file attachment
-router.post('/send-file', authenticate, upload.single('file'), async (req, res) => {
+// Mark messages as read
+router.put('/mark-read/:otherUserId', authenticate, async (req, res) => {
   try {
-    const { recipient_id, message_text = '' } = req.body;
-
-    if (!recipient_id || !req.file) {
-      return res.status(400).json({ error: 'Recipient and file are required' });
-    }
-
+    const { otherUserId } = req.params;
+    
     const chatModel = new Chat(req.db);
-    const message = await chatModel.sendMessage({
-      sender_id: req.user.id,
-      recipient_id: parseInt(recipient_id),
-      message_text: message_text.trim() || `Sent a file: ${req.file.originalname}`,
-      message_type: 'file',
-      attachment_path: req.file.path,
-      attachment_name: req.file.originalname
-    });
-
-    // Emit to Socket.IO if available
-    if (req.app.get('io')) {
-      req.app.get('io').to(`user_${recipient_id}`).emit('new_message', message);
-      req.app.get('io').to(`user_${req.user.id}`).emit('message_sent', message);
-    }
-
-    res.status(201).json({
+    await chatModel.markAsRead(req.user.id, otherUserId);
+    
+    res.json({
       success: true,
-      message
+      message: 'Messages marked as read'
     });
   } catch (error) {
-    console.error('Send file message error:', error);
-    res.status(500).json({ error: 'Failed to send file message' });
+    console.error('Mark as read error:', error);
+    res.status(500).json({ error: 'Failed to mark messages as read' });
   }
 });
 
-// Get all users for chat (colleagues)
+// Get users for chat
 router.get('/users', authenticate, async (req, res) => {
   try {
-    const userModel = new User(req.db);
     const [users] = await req.db.execute(
       `SELECT id, first_name, last_name, email, role 
        FROM users 
@@ -149,7 +90,7 @@ router.get('/users', authenticate, async (req, res) => {
        ORDER BY first_name, last_name`,
       [req.user.id]
     );
-
+    
     res.json({
       success: true,
       users
@@ -160,52 +101,18 @@ router.get('/users', authenticate, async (req, res) => {
   }
 });
 
-// Mark conversation as read
-router.put('/mark-read/:userId', authenticate, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const chatModel = new Chat(req.db);
-    
-    const markedCount = await chatModel.markAsRead(req.user.id, parseInt(userId));
-
-    res.json({
-      success: true,
-      marked_count: markedCount
-    });
-  } catch (error) {
-    console.error('Mark as read error:', error);
-    res.status(500).json({ error: 'Failed to mark as read' });
-  }
-});
-
-// Get unread message count
-router.get('/unread-count', authenticate, async (req, res) => {
-  try {
-    const chatModel = new Chat(req.db);
-    const unreadCount = await chatModel.getUnreadCount(req.user.id);
-
-    res.json({
-      success: true,
-      unread_count: unreadCount
-    });
-  } catch (error) {
-    console.error('Get unread count error:', error);
-    res.status(500).json({ error: 'Failed to get unread count' });
-  }
-});
-
-// Delete a message
-router.delete('/message/:messageId', authenticate, async (req, res) => {
+// Delete message
+router.delete('/messages/:messageId', authenticate, async (req, res) => {
   try {
     const { messageId } = req.params;
-    const chatModel = new Chat(req.db);
     
-    const deleted = await chatModel.deleteMessage(parseInt(messageId), req.user.id);
+    const chatModel = new Chat(req.db);
+    const deleted = await chatModel.deleteMessage(messageId, req.user.id);
     
     if (!deleted) {
       return res.status(404).json({ error: 'Message not found or not authorized' });
     }
-
+    
     res.json({
       success: true,
       message: 'Message deleted successfully'

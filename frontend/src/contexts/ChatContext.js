@@ -286,7 +286,7 @@ export const ChatProvider = ({ children }) => {
         [recipientId]: [...(prev[recipientId] || []), newMessage]
       }));
 
-      //  WHATSAPP-LIKE BEHAVIOR: Immediately add conversation to left sidebar
+      // WHATSAPP-LIKE BEHAVIOR: Immediately add conversation to left sidebar
       setConversations(prev => {
         const existingConversation = prev.find(conv => conv.other_user_id === recipientId);
         
@@ -353,7 +353,7 @@ export const ChatProvider = ({ children }) => {
         [recipientId]: [...(prev[recipientId] || []), newMessage]
       }));
 
-      //  WHATSAPP-LIKE BEHAVIOR: Immediately add conversation to left sidebar
+      // WHATSAPP-LIKE BEHAVIOR: Immediately add conversation to left sidebar
       setConversations(prev => {
         const existingConversation = prev.find(conv => conv.other_user_id === recipientId);
         

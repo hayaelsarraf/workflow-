@@ -1,102 +1,103 @@
 const express = require('express');
-const mysql = require('mysql2/promise');
 const cors = require('cors');
+const mysql = require('mysql2/promise');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const path = require('path');
+const { Server } = require('socket.io');
+const http = require('http');
 require('dotenv').config();
-const http = require('http'); 
-const socketIo = require('socket.io'); 
-const initializeSocket = require('./socket/socketHandler');
-const announcementRoutes = require('./routes/announcements');
-
-
-const authRoutes = require('./routes/auth');
-const taskRoutes = require('./routes/tasks');
-const chatRoutes = require('./routes/chat');
-const announcementsRouter = require('./routes/announcements');
 
 const app = express();
-const server = http.createServer(app); 
+const server = http.createServer(app);
 
-const io = socketIo(server, {
+// Initialize Socket.IO
+const io = new Server(server, {
   cors: {
     origin: "http://localhost:3000",
-    methods: ["GET", "POST"],
-    credentials: true
+    methods: ["GET", "POST"]
   }
 });
 
-initializeSocket(io);
-app.set('io', io);
+console.log('🔌 Initializing Socket.IO...');
+console.log('✅ Socket.IO initialized successfully');
 
 // Middleware
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cors());
+app.use(express.json());
+app.use(express.static('uploads'));
 
-
-
-// Database connection with better error handling
-const createDbConnection = async () => {
-  try {
-    const db = await mysql.createConnection({
-      host: 'localhost',
-      user: 'hayaelsarraf',
-      password: '1234',
-      database: 'hayaelsarraf',
-      connectionLimit: 10,
-      acquireTimeout: 60000,
-      timeout: 60000
-    });
-    
-    console.log('✅ MySQL Connected Successfully!');
-    return db;
-  } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    process.exit(1);
-  }
+// Database connection
+const dbConfig = {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'workflow_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 };
 
-// Initialize database connection and add to request object
-let dbConnection;
-createDbConnection().then(db => {
-  dbConnection = db;
-});
+const pool = mysql.createPool(dbConfig);
 
+// Test database connection
+pool.getConnection()
+  .then(connection => {
+    console.log('✅ MySQL Connected Successfully!');
+    connection.release();
+  })
+  .catch(err => {
+    console.error('❌ MySQL Connection Error:', err);
+  });
+
+// Make db available to routes
 app.use((req, res, next) => {
-  req.db = dbConnection;
+  req.db = pool;
   next();
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/tasks', taskRoutes); 
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/chat', chatRoutes);
+// Import routes
+const authRouter = require('./routes/auth');
+const tasksRouter = require('./routes/tasks');
+const chatRouter = require('./routes/chat');
+const notificationsRouter = require('./routes/notifications');
+const announcementsRouter = require('./routes/announcements');
+
+// Use routes
+app.use('/api/auth', authRouter);
+app.use('/api/tasks', tasksRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/notifications', notificationsRouter);
 app.use('/api/announcements', announcementsRouter);
 
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('🔌 User connected:', socket.id);
 
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    database: 'Connected'
+  socket.on('join_user_room', (userId) => {
+    socket.join(`user_${userId}`);
+    console.log(`👤 User ${userId} joined their room`);
   });
-});
 
-// Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('Global error handler:', error);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+  socket.on('send_message', async (messageData) => {
+    try {
+      // Handle message sending logic here
+      console.log('📨 Message received:', messageData);
+      
+      // Emit to recipient
+      socket.to(`user_${messageData.recipient_id}`).emit('new_message', messageData);
+    } catch (error) {
+      console.error('Error handling message:', error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 User disconnected:', socket.id);
   });
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });

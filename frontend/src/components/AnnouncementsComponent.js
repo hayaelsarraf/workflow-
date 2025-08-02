@@ -1,56 +1,35 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
+  Typography,
   Card,
   CardContent,
-  Typography,
   Chip,
-  Button,
+  Avatar,
+  Divider,
+  Alert,
+  CircularProgress,
+  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton,
-  Alert,
-  Divider,
-  Grid,
-  Paper
+  Button
 } from '@mui/material';
 import {
   Announcement as AnnouncementIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Close as CloseIcon,
-  Visibility as VisibilityIcon
+  Person as PersonIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useAnnouncements } from '../contexts/AnnouncementContext';
 import { useAuth } from '../contexts/AuthContext';
 
 const AnnouncementsComponent = () => {
-  const { user } = useAuth();
   const { announcements, loading, deleteAnnouncement } = useAnnouncements();
-  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [announcementToDelete, setAnnouncementToDelete] = useState(null);
-
-  const handleViewAnnouncement = (announcement) => {
-    setSelectedAnnouncement(announcement);
-  };
-
-  const handleDeleteClick = (announcement) => {
-    setAnnouncementToDelete(announcement);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    try {
-      await deleteAnnouncement(announcementToDelete.id);
-      setDeleteDialogOpen(false);
-      setAnnouncementToDelete(null);
-    } catch (error) {
-      console.error('Failed to delete announcement:', error);
-    }
-  };
+  const { user } = useAuth();
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [announcementToDelete, setAnnouncementToDelete] = React.useState(null);
+  const [deleting, setDeleting] = React.useState(false);
 
   const getAnnouncementTypeColor = (type) => {
     switch (type) {
@@ -70,206 +49,159 @@ const AnnouncementsComponent = () => {
     });
   };
 
-  const canManageAnnouncements = user?.role === 'admin' || user?.role === 'manager';
+  const handleDeleteClick = (announcement) => {
+    setAnnouncementToDelete(announcement);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!announcementToDelete) return;
+    
+    try {
+      setDeleting(true);
+      await deleteAnnouncement(announcementToDelete.id);
+      setDeleteDialogOpen(false);
+      setAnnouncementToDelete(null);
+    } catch (error) {
+      console.error('Failed to delete announcement:', error);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setAnnouncementToDelete(null);
+  };
+
+  const canDeleteAnnouncement = (announcement) => {
+    return user?.role === 'admin' || 
+           (user?.role === 'manager' && announcement.sender_id === user?.id);
+  };
 
   if (loading) {
     return (
-      <Box sx={{ textAlign: 'center', py: 4 }}>
-        <Typography>Loading announcements...</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress />
       </Box>
     );
   }
 
+  if (!announcements || announcements.length === 0) {
+    return (
+      <Alert severity="info">
+        No announcements available at the moment.
+      </Alert>
+    );
+  }
+
   return (
-    <Paper sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-        <AnnouncementIcon color="primary" />
-        <Typography variant="h6">Announcements</Typography>
-      </Box>
-
-      {announcements.length === 0 ? (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 4 }}>
-            <AnnouncementIcon sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
-            <Typography variant="h6" color="textSecondary" gutterBottom>
-              No Announcements
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {canManageAnnouncements 
-                ? 'Create your first announcement to keep your team informed.'
-                : 'No announcements have been posted yet.'
-              }
-            </Typography>
-          </CardContent>
-        </Card>
-      ) : (
-        <Grid container spacing={2}>
-          {announcements.map((announcement) => (
-            <Grid item xs={12} md={6} key={announcement.id}>
-              <Card 
-                sx={{ 
-                  height: '100%',
-                  border: announcement.announcement_type === 'urgent' ? '2px solid #f44336' : '1px solid #e0e0e0',
-                  '&:hover': {
-                    boxShadow: 2,
-                    transform: 'translateY(-2px)',
-                    transition: 'all 0.2s ease-in-out'
-                  }
-                }}
-              >
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="h6" gutterBottom>
-                        {announcement.title}
-                      </Typography>
-                      <Chip 
-                        label={announcement.announcement_type} 
-                        color={getAnnouncementTypeColor(announcement.announcement_type)}
-                        size="small"
-                        sx={{ mb: 1 }}
-                      />
-                    </Box>
-                    
-                    {canManageAnnouncements && (
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleViewAnnouncement(announcement)}
-                        >
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton 
-                          size="small" 
-                          color="error"
-                          onClick={() => handleDeleteClick(announcement)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    )}
-                  </Box>
-
-                  <Typography 
-                    variant="body2" 
-                    color="textSecondary" 
-                    sx={{ 
-                      mb: 2,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 3,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
-                    }}
-                  >
-                    {announcement.content}
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        Recent Announcements
+      </Typography>
+      
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {announcements.map((announcement) => (
+          <Card key={announcement.id} variant="outlined">
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AnnouncementIcon color="primary" />
+                  <Typography variant="h6">
+                    {announcement.title}
                   </Typography>
-
-                  {announcement.announcement_type === 'course_enrollment' && announcement.course_name && (
-                    <Alert severity="info" sx={{ mb: 2 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Course: {announcement.course_name}
-                      </Typography>
-                      {announcement.course_start_date && (
-                        <Typography variant="body2">
-                          Start Date: {formatDate(announcement.course_start_date)}
-                        </Typography>
-                      )}
-                    </Alert>
-                  )}
-
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="caption" color="textSecondary">
-                      {formatDate(announcement.created_at)}
-                    </Typography>
-                    <Button 
+                </Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip 
+                    label={announcement.announcement_type} 
+                    color={getAnnouncementTypeColor(announcement.announcement_type)}
+                    size="small"
+                  />
+                  {canDeleteAnnouncement(announcement) && (
+                    <IconButton 
                       size="small" 
-                      onClick={() => handleViewAnnouncement(announcement)}
-                      startIcon={<VisibilityIcon />}
+                      color="error"
+                      onClick={() => handleDeleteClick(announcement)}
+                      title="Delete announcement"
                     >
-                      View Details
-                    </Button>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-        </Grid>
-      )}
-
-      {/* View Announcement Dialog */}
-      <Dialog 
-        open={!!selectedAnnouncement} 
-        onClose={() => setSelectedAnnouncement(null)}
-        maxWidth="md"
-        fullWidth
-      >
-        {selectedAnnouncement && (
-          <>
-            <DialogTitle>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6">{selectedAnnouncement.title}</Typography>
-                <IconButton onClick={() => setSelectedAnnouncement(null)}>
-                  <CloseIcon />
-                </IconButton>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
               </Box>
-            </DialogTitle>
-            <DialogContent>
-              <Chip 
-                label={selectedAnnouncement.announcement_type} 
-                color={getAnnouncementTypeColor(selectedAnnouncement.announcement_type)}
-                sx={{ mb: 2 }}
-              />
-              
+
               <Typography variant="body1" sx={{ mb: 2 }}>
-                {selectedAnnouncement.content}
+                {announcement.content}
               </Typography>
 
-              {selectedAnnouncement.announcement_type === 'course_enrollment' && selectedAnnouncement.course_name && (
-                <Alert severity="info" sx={{ mb: 2 }}>
+              {announcement.announcement_type === 'course_enrollment' && announcement.course_name && (
+                <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Course: {selectedAnnouncement.course_name}
+                    Course Details:
                   </Typography>
-                  {selectedAnnouncement.course_description && (
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Course:</strong> {announcement.course_name}
+                  </Typography>
+                  {announcement.course_description && (
                     <Typography variant="body2" sx={{ mb: 1 }}>
-                      {selectedAnnouncement.course_description}
+                      <strong>Description:</strong> {announcement.course_description}
                     </Typography>
                   )}
-                  {selectedAnnouncement.course_start_date && (
+                  {announcement.course_start_date && (
                     <Typography variant="body2">
-                      Start Date: {formatDate(selectedAnnouncement.course_start_date)}
+                      <strong>Start Date:</strong> {formatDate(announcement.course_start_date)}
                     </Typography>
                   )}
-                </Alert>
+                </Box>
               )}
 
               <Divider sx={{ my: 2 }} />
-              <Typography variant="caption" color="textSecondary">
-                Posted on {formatDate(selectedAnnouncement.created_at)}
-              </Typography>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setSelectedAnnouncement(null)}>Close</Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
+
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Avatar sx={{ width: 24, height: 24 }}>
+                    <PersonIcon fontSize="small" />
+                  </Avatar>
+                  <Typography variant="body2" color="textSecondary">
+                    {announcement.sender_first_name} {announcement.sender_last_name}
+                  </Typography>
+                </Box>
+                <Typography variant="caption" color="textSecondary">
+                  {formatDate(announcement.created_at)}
+                </Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
         <DialogTitle>Delete Announcement</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete "{announcementToDelete?.title}"? This action cannot be undone.
+            Are you sure you want to delete the announcement "{announcementToDelete?.title}"?
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+            This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
-            Delete
+          <Button onClick={handleDeleteCancel} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteConfirm} 
+            color="error" 
+            variant="contained"
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </Box>
   );
 };
 

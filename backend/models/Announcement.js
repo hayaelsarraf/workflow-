@@ -48,11 +48,11 @@ class Announcement {
     }
   }
 
-  // Get all announcements for a user based on their role
+  // Get all announcements for a user
   async getAllForUser(userId, userRole) {
     try {
-      let query = `
-        SELECT 
+      const [announcements] = await this.db.execute(
+        `SELECT 
           a.*,
           u.first_name as sender_first_name,
           u.last_name as sender_last_name,
@@ -60,14 +60,9 @@ class Announcement {
          FROM announcements a
          JOIN users u ON a.sender_id = u.id
          WHERE a.is_active = TRUE
-      `;
+         ORDER BY a.created_at DESC`
+      );
 
-      const params = [];
-
-      // ✅ FIXED: Simplified filtering - all users can see all announcements
-      query += ` ORDER BY a.created_at DESC`;
-
-      const [announcements] = await this.db.execute(query, params);
       return announcements;
     } catch (error) {
       console.error('Get announcements error:', error);

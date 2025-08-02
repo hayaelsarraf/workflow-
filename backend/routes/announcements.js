@@ -4,7 +4,7 @@ const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all announcements for the current user
+// Get all announcements for the current user (all users can view)
 router.get('/', authenticate, async (req, res) => {
   try {
     const announcementModel = new Announcement(req.db);
@@ -20,7 +20,7 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// Get announcement by ID
+// Get announcement by ID (all users can view)
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
@@ -55,8 +55,7 @@ router.post('/', authenticate, async (req, res) => {
       announcement_type = 'general',
       course_name,
       course_description,
-      course_start_date,
-      target_audience = 'all'
+      course_start_date
     } = req.body;
 
     // Validate required fields
@@ -70,12 +69,6 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Invalid announcement type' });
     }
 
-    // Validate target audience
-    const validAudiences = ['all', 'members', 'managers'];
-    if (!validAudiences.includes(target_audience)) {
-      return res.status(400).json({ error: 'Invalid target audience' });
-    }
-
     const announcementModel = new Announcement(req.db);
     const announcement = await announcementModel.create({
       sender_id: req.user.id,
@@ -84,8 +77,7 @@ router.post('/', authenticate, async (req, res) => {
       announcement_type,
       course_name,
       course_description,
-      course_start_date,
-      target_audience
+      course_start_date
     });
 
     res.status(201).json({
@@ -145,6 +137,12 @@ router.put('/:id', authenticate, async (req, res) => {
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Check if user has permission to delete announcements
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+      return res.status(403).json({ error: 'Only managers and admins can delete announcements' });
+    }
+    
     const announcementModel = new Announcement(req.db);
     
     await announcementModel.delete(parseInt(id), req.user.id);

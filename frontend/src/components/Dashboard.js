@@ -25,7 +25,8 @@ import {
   Add, 
   List, 
   Chat as ChatIcon,
-  Announcement as AnnouncementIcon
+  Announcement as AnnouncementIcon,
+  Visibility as ViewIcon
 } from '@mui/icons-material';
 
 const Dashboard = () => {
@@ -59,6 +60,7 @@ const Dashboard = () => {
   };
 
   const canManageAnnouncements = user?.role === 'admin' || user?.role === 'manager';
+  const canCreateTasks = user?.role === 'admin' || user?.role === 'manager';
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -95,18 +97,31 @@ const Dashboard = () => {
                   <Box>
                     <Typography variant="h6">Task Management</Typography>
                     <Typography variant="body2" color="textSecondary">
-                      Create and manage your tasks efficiently
+                      {canCreateTasks 
+                        ? 'Create and manage your tasks efficiently'
+                        : 'View and update your assigned tasks'
+                      }
                     </Typography>
                   </Box>
                 </Box>
-                <Button 
-                  variant="contained" 
-                  startIcon={<Add />}
-                  sx={{ mt: 2 }}
-                  onClick={() => navigate('/tasks/create')}
-                >
-                  Create Task
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                  {canCreateTasks && (
+                    <Button 
+                      variant="contained" 
+                      startIcon={<Add />}
+                      onClick={() => navigate('/tasks/create')}
+                    >
+                      Create Task
+                    </Button>
+                  )}
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<ViewIcon />}
+                    onClick={() => navigate('/tasks')}
+                  >
+                    View Tasks
+                  </Button>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -180,6 +195,7 @@ const Dashboard = () => {
                 <ul>
                   <li>Manage all users</li>
                   <li>System configuration</li>
+                  <li>Create and manage all tasks</li>
                   <li>View all projects and tasks</li>
                   <li>Analytics and reports</li>
                   <li>Create and manage announcements</li>
@@ -193,11 +209,12 @@ const Dashboard = () => {
                   Manager Dashboard - Project Management
                 </Typography>
                 <ul>
-                  <li>Create and manage tasks</li>
-                  <li>Assign tasks to team members</li>
+                  <li>Create and assign tasks to team members</li>
+                  <li>Manage and monitor task progress</li>
                   <li>View team analytics</li>
                   <li>Manage team workflows</li>
                   <li>Create and manage announcements</li>
+                  <li>Review task status updates</li>
                 </ul>
               </Box>
             )}
@@ -209,8 +226,9 @@ const Dashboard = () => {
                 </Typography>
                 <ul>
                   <li>View assigned tasks</li>
-                  <li>Update task status</li>
-                  <li>Collaborate with team</li>
+                  <li>Update task status and progress</li>
+                  <li>Mark tasks as completed</li>
+                  <li>Collaborate with team members</li>
                   <li>Track personal progress</li>
                   <li>View announcements</li>
                 </ul>

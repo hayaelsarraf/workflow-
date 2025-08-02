@@ -22,7 +22,7 @@ export const AnnouncementProvider = ({ children }) => {
     
     try {
       setLoading(true);
-      const response = await axios.get('/api/announcements', {
+      const response = await axios.get('http://localhost:5000/api/announcements', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       setAnnouncements(response.data.announcements);
@@ -35,7 +35,7 @@ export const AnnouncementProvider = ({ children }) => {
 
   const createAnnouncement = useCallback(async (announcementData) => {
     try {
-      const response = await axios.post('/api/announcements', announcementData, {
+      const response = await axios.post('http://localhost:5000/api/announcements', announcementData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       
@@ -69,7 +69,7 @@ export const AnnouncementProvider = ({ children }) => {
 
   const deleteAnnouncement = useCallback(async (id) => {
     try {
-      await axios.delete(`/api/announcements/${id}`, {
+      await axios.delete(`http://localhost:5000/api/announcements/${id}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       

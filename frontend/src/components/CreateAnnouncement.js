@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  Paper,
-  Box,
-  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   TextField,
   Button,
   FormControl,
@@ -11,17 +12,18 @@ import {
   MenuItem,
   Chip,
   Alert,
-  IconButton,
-  InputAdornment
+  Box,
+  Typography
 } from '@mui/material';
 import {
   Announcement as AnnouncementIcon,
-  Close as CloseIcon,
   Send as SendIcon
 } from '@mui/icons-material';
 import { useAnnouncements } from '../contexts/AnnouncementContext';
+import { useAuth } from '../contexts/AuthContext';
 
 const CreateAnnouncement = ({ open, onClose }) => {
+  const { user } = useAuth();
   const { createAnnouncement } = useAnnouncements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -90,131 +92,129 @@ const CreateAnnouncement = ({ open, onClose }) => {
     }
   };
 
-  if (!open) return null;
+  // Only show for managers and admins
+  if (user?.role !== 'manager' && user?.role !== 'admin') return null;
 
   return (
-    <Paper 
-      sx={{ 
-        p: 3, 
-        mb: 3,
-        border: '1px solid #e0e0e0',
-        borderRadius: 2
-      }}
+    <Dialog 
+      open={open} 
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <AnnouncementIcon color="primary" />
           <Typography variant="h6">Create Announcement</Typography>
         </Box>
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </Box>
+      </DialogTitle>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>Announcement Type</InputLabel>
-            <Select
-              name="announcement_type"
-              value={formData.announcement_type}
-              onChange={handleChange}
-              label="Announcement Type"
-            >
-              <MenuItem value="general">General</MenuItem>
-              <MenuItem value="course_enrollment">Course Enrollment</MenuItem>
-              <MenuItem value="urgent">Urgent</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <Chip 
-            label={`Type: ${formData.announcement_type}`} 
-            color={getAnnouncementTypeColor(formData.announcement_type)}
-            size="small"
-          />
-        </Box>
-
-        <TextField
-          fullWidth
-          label="Title"
-          name="title"
-          value={formData.title}
-          onChange={handleChange}
-          required
-          sx={{ mb: 2 }}
-        />
-
-        <TextField
-          fullWidth
-          label="Content"
-          name="content"
-          value={formData.content}
-          onChange={handleChange}
-          required
-          multiline
-          rows={4}
-          sx={{ mb: 2 }}
-        />
-
-        {formData.announcement_type === 'course_enrollment' && (
-          <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, mb: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Course Information
-            </Typography>
-            
-            <TextField
-              fullWidth
-              label="Course Name"
-              name="course_name"
-              value={formData.course_name}
-              onChange={handleChange}
-              sx={{ mb: 2 }}
-            />
-            
-            <TextField
-              fullWidth
-              label="Course Description"
-              name="course_description"
-              value={formData.course_description}
-              onChange={handleChange}
-              multiline
-              rows={2}
-              sx={{ mb: 2 }}
-            />
-            
-            <TextField
-              fullWidth
-              label="Course Start Date"
-              name="course_start_date"
-              type="date"
-              value={formData.course_start_date}
-              onChange={handleChange}
-              InputLabelProps={{ shrink: true }}
-            />
-          </Box>
+      <DialogContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
         )}
 
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Button onClick={onClose} disabled={loading}>
-            Cancel
-          </Button>
-          <Button 
-            type="submit" 
-            variant="contained" 
-            disabled={loading}
-            endIcon={<SendIcon />}
-          >
-            {loading ? 'Creating...' : 'Post Announcement'}
-          </Button>
-        </Box>
-      </form>
-    </Paper>
+        <form onSubmit={handleSubmit}>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <FormControl sx={{ minWidth: 200 }}>
+              <InputLabel>Announcement Type</InputLabel>
+              <Select
+                name="announcement_type"
+                value={formData.announcement_type}
+                onChange={handleChange}
+                label="Announcement Type"
+              >
+                <MenuItem value="general">General</MenuItem>
+                <MenuItem value="course_enrollment">Course Enrollment</MenuItem>
+                <MenuItem value="urgent">Urgent</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Chip 
+              label={`Type: ${formData.announcement_type}`} 
+              color={getAnnouncementTypeColor(formData.announcement_type)}
+              size="small"
+            />
+          </Box>
+
+          <TextField
+            fullWidth
+            label="Title"
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            required
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            fullWidth
+            label="Content"
+            name="content"
+            value={formData.content}
+            onChange={handleChange}
+            required
+            multiline
+            rows={4}
+            sx={{ mb: 2 }}
+          />
+
+          {formData.announcement_type === 'course_enrollment' && (
+            <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, p: 2, mb: 2 }}>
+              <Typography variant="subtitle2" gutterBottom>
+                Course Information
+              </Typography>
+              
+              <TextField
+                fullWidth
+                label="Course Name"
+                name="course_name"
+                value={formData.course_name}
+                onChange={handleChange}
+                sx={{ mb: 2 }}
+              />
+              
+              <TextField
+                fullWidth
+                label="Course Description"
+                name="course_description"
+                value={formData.course_description}
+                onChange={handleChange}
+                multiline
+                rows={2}
+                sx={{ mb: 2 }}
+              />
+              
+              <TextField
+                fullWidth
+                label="Course Start Date"
+                name="course_start_date"
+                type="date"
+                value={formData.course_start_date}
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Box>
+          )}
+        </form>
+      </DialogContent>
+
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading}>
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleSubmit}
+          variant="contained" 
+          disabled={loading}
+          endIcon={<SendIcon />}
+        >
+          {loading ? 'Creating...' : 'Post Announcement'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
