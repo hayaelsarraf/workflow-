@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import NotificationBell from '../components/NotificationBell'; // ✅ Fixed import path
+import NotificationBell from '../components/NotificationBell';
 
 import {
   AppBar,
@@ -80,8 +80,7 @@ const Header = () => {
               )}
             </Box>
 
-            {/* ✅ Notification Bell - properly positioned within user auth check */}
-          {/* <NotificationBell /> */}
+            <NotificationBell />
 
             {/* User menu */}
             <Box>
@@ -110,7 +109,6 @@ const Header = () => {
             </Box>
           </>
         )}
-         <NotificationBell /> 
       </Toolbar>
     </AppBar>
   );

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Badge } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { useChat } from '../contexts/ChatContext';
 import ChatComponent from './ChatComponent';
+import CreateTask from './CreateTask';
+import TaskList from './TaskList';
+import CreateAnnouncement from './CreateAnnouncement';
+import AnnouncementsComponent from './AnnouncementsComponent';
 import {
   Container,
   Typography,
@@ -14,15 +16,24 @@ import {
   Grid,
   Card,
   CardContent,
-  Fab 
+  Fab,
+  Tabs,
+  Tab
 } from '@mui/material';
-import { Task, Add, List, Chat as ChatIcon } from '@mui/icons-material';
+import { 
+  Task, 
+  Add, 
+  List, 
+  Chat as ChatIcon,
+  Announcement as AnnouncementIcon
+} from '@mui/icons-material';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const { unreadCount } = useChat();
   const [chatOpen, setChatOpen] = useState(false);
+  const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
 
   const getRoleColor = (role) => {
     switch (role) {
@@ -33,155 +44,183 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Debug function to test chat opening
-  const handleChatOpen = () => {
-    console.log('📱 Chat button clicked');
-    console.log('Current chatOpen state:', chatOpen);
-    setChatOpen(true);
-    console.log('Chat should now be open');
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
-  console.log('🔍 Dashboard render state:', {
-    chatOpen,
-    unreadCount,
-    userExists: !!user
-  });
+  const handleChatOpen = () => {
+    console.log('📱 Chat button clicked');
+    setChatOpen(true);
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  const canManageAnnouncements = user?.role === 'admin' || user?.role === 'manager';
 
   return (
-    <Container maxWidth="lg">
-      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h4">
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box>
+          <Typography variant="h4" gutterBottom>
             Welcome, {user?.first_name} {user?.last_name}!
           </Typography>
-          <Button variant="outlined" onClick={logout}>
-            Logout
-          </Button>
-        </Box>
-        
-        <Box mb={3}>
           <Chip 
-            label={`Role: ${user?.role.toUpperCase()}`} 
-            color={getRoleColor(user?.role)}
-            variant="filled"
+            label={user?.role} 
+            color={getRoleColor(user?.role)} 
+            variant="outlined"
           />
         </Box>
-        
-        <Typography variant="body1" color="textSecondary" mb={3}>
-          Email: {user?.email}
+        <Button variant="outlined" onClick={handleLogout}>
+          Logout
+        </Button>
+      </Box>
+
+      {/* Main Content */}
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Typography variant="h5" gutterBottom>
+          Dashboard Overview
         </Typography>
 
         {/* Quick Actions Section */}
-        <Grid container spacing={3} sx={{ mt: 2 }}>
+        <Grid container spacing={3} sx={{ mt: 2, mb: 4 }}>
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  <Task sx={{ mr: 1, verticalAlign: 'middle' }} />
-                  Task Management
-                </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
-                  View and manage your tasks
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="contained"
-                    startIcon={<List />}
-                    onClick={() => navigate('/tasks')}
-                  >
-                    View Tasks
-                  </Button>
-                  {(user?.role === 'admin' || user?.role === 'manager') && (
-                    <Button
-                      variant="outlined"
-                      startIcon={<Add />}
-                      onClick={() => navigate('/tasks/create')}
-                    >
-                      Create Task
-                    </Button>
-                  )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Task color="primary" sx={{ fontSize: 40 }} />
+                  <Box>
+                    <Typography variant="h6">Task Management</Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      Create and manage your tasks efficiently
+                    </Typography>
+                  </Box>
                 </Box>
+                <Button 
+                  variant="contained" 
+                  startIcon={<Add />}
+                  sx={{ mt: 2 }}
+                  onClick={() => navigate('/tasks/create')}
+                >
+                  Create Task
+                </Button>
               </CardContent>
             </Card>
           </Grid>
           
-          {/* ✅ ADD: Chat Info Card */}
           <Grid item xs={12} md={6}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  <ChatIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                  Team Chat
-                </Typography>
-                <Typography variant="body2" color="textSecondary" paragraph>
-                  Communicate with your team members
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <Button
-                    variant="contained"
-                    startIcon={<ChatIcon />}
-                    onClick={handleChatOpen}
-                  >
-                    Open Chat
-                  </Button>
-                  {unreadCount > 0 && (
-                    <Chip 
-                      label={`${unreadCount} unread`} 
-                      color="error" 
-                      size="small" 
-                    />
-                  )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <ChatIcon color="primary" sx={{ fontSize: 40 }} />
+                  <Box>
+                    <Typography variant="h6">Team Chat</Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      Communicate with your team members
+                    </Typography>
+                  </Box>
                 </Box>
+                <Button 
+                  variant="contained" 
+                  startIcon={<ChatIcon />}
+                  sx={{ mt: 2 }}
+                  onClick={handleChatOpen}
+                >
+                  Open Chat
+                </Button>
               </CardContent>
             </Card>
           </Grid>
         </Grid>
-        
-        {/* Role-based content */}
-        {user?.role === 'admin' && (
-          <Box mt={3}>
-            <Typography variant="h6" color="error">
-              Admin Dashboard - Full Access
-            </Typography>
-            <ul>
-              <li>Manage all users</li>
-              <li>System configuration</li>
-              <li>View all projects and tasks</li>
-              <li>Analytics and reports</li>
-            </ul>
+
+        {/* Tabs for Announcements and Role-based content */}
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+          <Tabs value={activeTab} onChange={handleTabChange}>
+            <Tab 
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <AnnouncementIcon />
+                  Announcements
+                </Box>
+              } 
+            />
+            <Tab label="Dashboard Info" />
+          </Tabs>
+        </Box>
+
+        {/* Tab Content */}
+        {activeTab === 0 && (
+          <Box>
+            {canManageAnnouncements && (
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={() => setCreateAnnouncementOpen(true)}
+                >
+                  Create Announcement
+                </Button>
+              </Box>
+            )}
+            <AnnouncementsComponent />
           </Box>
         )}
-        
-        {user?.role === 'manager' && (
-          <Box mt={3}>
-            <Typography variant="h6" color="warning.main">
-              Manager Dashboard - Project Management
-            </Typography>
-            <ul>
-              <li>Create and manage tasks</li>
-              <li>Assign tasks to team members</li>
-              <li>View team analytics</li>
-              <li>Manage team workflows</li>
-            </ul>
-          </Box>
-        )}
-        
-        {user?.role === 'member' && (
-          <Box mt={3}>
-            <Typography variant="h6" color="info.main">
-              Member Dashboard - Task Management
-            </Typography>
-            <ul>
-              <li>View assigned tasks</li>
-              <li>Update task status</li>
-              <li>Collaborate with team</li>
-              <li>Track personal progress</li>
-            </ul>
+
+        {activeTab === 1 && (
+          <Box>
+            {/* Role-based content */}
+            {user?.role === 'admin' && (
+              <Box>
+                <Typography variant="h6" color="error">
+                  Admin Dashboard - Full Access
+                </Typography>
+                <ul>
+                  <li>Manage all users</li>
+                  <li>System configuration</li>
+                  <li>View all projects and tasks</li>
+                  <li>Analytics and reports</li>
+                  <li>Create and manage announcements</li>
+                </ul>
+              </Box>
+            )}
+            
+            {user?.role === 'manager' && (
+              <Box>
+                <Typography variant="h6" color="warning.main">
+                  Manager Dashboard - Project Management
+                </Typography>
+                <ul>
+                  <li>Create and manage tasks</li>
+                  <li>Assign tasks to team members</li>
+                  <li>View team analytics</li>
+                  <li>Manage team workflows</li>
+                  <li>Create and manage announcements</li>
+                </ul>
+              </Box>
+            )}
+            
+            {user?.role === 'member' && (
+              <Box>
+                <Typography variant="h6" color="info.main">
+                  Member Dashboard - Task Management
+                </Typography>
+                <ul>
+                  <li>View assigned tasks</li>
+                  <li>Update task status</li>
+                  <li>Collaborate with team</li>
+                  <li>Track personal progress</li>
+                  <li>View announcements</li>
+                </ul>
+              </Box>
+            )}
           </Box>
         )}
       </Paper>
 
-      {/* ✅ Floating Action Button */}
+      {/* Floating Action Button */}
       <Fab
         color="primary"
         aria-label="chat"
@@ -189,23 +228,22 @@ const Dashboard = () => {
           position: 'fixed',
           bottom: 16,
           right: 16,
-          zIndex: 1000
         }}
         onClick={handleChatOpen}
       >
-        <Badge badgeContent={unreadCount} color="error">
-          <ChatIcon />
-        </Badge>
+        <ChatIcon />
       </Fab>
 
-      {/* ✅ Chat Component with debugging */}
-      {console.log('🎭 Rendering ChatComponent with isOpen:', chatOpen)}
+      {/* Chat Component */}
       <ChatComponent 
         isOpen={chatOpen} 
-        onClose={() => {
-          console.log('❌ Chat closing');
-          setChatOpen(false);
-        }} 
+        onClose={() => setChatOpen(false)} 
+      />
+
+      {/* Create Announcement Dialog */}
+      <CreateAnnouncement 
+        open={createAnnouncementOpen}
+        onClose={() => setCreateAnnouncementOpen(false)}
       />
     </Container>
   );

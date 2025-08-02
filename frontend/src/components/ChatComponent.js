@@ -10,7 +10,6 @@ import {
   ListItemAvatar,
   ListItemText,
   Avatar,
-  Badge,
   Chip,
   Divider,
   Dialog,
@@ -42,7 +41,6 @@ const ChatComponent = ({ isOpen, onClose }) => {
     conversations, 
     currentConversation, 
     messages, 
-    unreadCount,
     users,
     openConversation, 
     sendMessage, 
@@ -128,13 +126,7 @@ const ChatComponent = ({ isOpen, onClose }) => {
           <Box display="flex" alignItems="center" gap={1}>
             <ChatIcon color="primary" />
             <Typography variant="h6">
-              Chat {unreadCount > 0 && (
-                <Badge 
-                  badgeContent={unreadCount} 
-                  color="error" 
-                  sx={{ ml: 1 }}
-                />
-              )}
+              Chat
             </Typography>
           </Box>
           <Box>
@@ -152,7 +144,7 @@ const ChatComponent = ({ isOpen, onClose }) => {
 
       <DialogContent sx={{ p: 0, flex: 1, display: 'flex' }}>
         <Box sx={{ display: 'flex', width: '100%', height: '100%' }}>
-          {/* 🔥 ENHANCED: WhatsApp-like Conversations List with Bold Names */}
+          {/* Conversations List */}
           <Box sx={{ width: '320px', borderRight: 1, borderColor: 'divider' }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', bgcolor: 'grey.50' }}>
               <Typography variant="subtitle1" fontWeight="bold">
@@ -169,9 +161,8 @@ const ChatComponent = ({ isOpen, onClose }) => {
                 </ListItem>
               ) : (
                 conversations.map((conversation) => {
-                  const hasUnreadMessages = conversation.unread_count > 0;
                   const isActive = currentConversation?.other_user_id === conversation.other_user_id;
-                  
+                   
                   return (
                     <ListItem 
                       key={conversation.other_user_id}
@@ -182,9 +173,7 @@ const ChatComponent = ({ isOpen, onClose }) => {
                         py: 1.5,
                         px: 2,
                         borderBottom: '1px solid #f0f0f0',
-                        // 🔥 WhatsApp-like enhanced styling
-                        backgroundColor: isActive ? 'rgba(25, 118, 210, 0.08)' : 
-                                       hasUnreadMessages ? 'rgba(25, 118, 210, 0.03)' : 'transparent',
+                        backgroundColor: isActive ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
                         '&:hover': {
                           backgroundColor: isActive ? 'rgba(25, 118, 210, 0.12)' : 
                                          'rgba(0, 0, 0, 0.04)'
@@ -193,39 +182,26 @@ const ChatComponent = ({ isOpen, onClose }) => {
                       }}
                     >
                       <ListItemAvatar>
-                        <Badge 
-                          badgeContent={conversation.unread_count || 0} 
-                          color="error"
-                          sx={{
-                            '& .MuiBadge-badge': {
-                              fontWeight: 'bold',
-                              fontSize: '0.7rem'
-                            }
+                        <Avatar 
+                          sx={{ 
+                            bgcolor: 'grey.400',
+                            width: 48,
+                            height: 48
                           }}
                         >
-                          <Avatar 
-                            sx={{ 
-                              bgcolor: hasUnreadMessages ? 'primary.main' : 'grey.400',
-                              fontWeight: hasUnreadMessages ? 'bold' : 'normal',
-                              width: 48,
-                              height: 48
-                            }}
-                          >
-                            {conversation.other_user_first_name[0]?.toUpperCase()}
-                          </Avatar>
-                        </Badge>
+                          {conversation.other_user_first_name[0]?.toUpperCase()}
+                        </Avatar>
                       </ListItemAvatar>
                       <ListItemText
                         sx={{ ml: 1 }}
                         primary={
                           <Box display="flex" alignItems="center" justifyContent="space-between">
                             <Box display="flex" alignItems="center" gap={1}>
-                              {/* 🔥 BOLD NAME for unread messages like WhatsApp */}
                               <Typography 
                                 variant="subtitle2"
                                 sx={{ 
-                                  fontWeight: hasUnreadMessages ? '700' : '500', // Bold for unread
-                                  color: hasUnreadMessages ? 'text.primary' : 'text.primary',
+                                  fontWeight: '500',
+                                  color: 'text.primary',
                                   fontSize: '0.95rem',
                                   lineHeight: 1.2
                                 }}
@@ -244,38 +220,25 @@ const ChatComponent = ({ isOpen, onClose }) => {
                                        conversation.other_user_role === 'manager' ? 'warning' : 'default'}
                               />
                             </Box>
-                            {/* Time and Unread Indicator */}
-                            <Box display="flex" alignItems="center" gap={0.5}>
-                              <Typography 
-                                variant="caption" 
-                                sx={{ 
-                                  color: hasUnreadMessages ? 'primary.main' : 'text.secondary',
-                                  fontWeight: hasUnreadMessages ? 'bold' : 'normal',
-                                  fontSize: '0.7rem'
-                                }}
-                              >
-                                {formatTime(conversation.last_message_time)}
-                              </Typography>
-                              {hasUnreadMessages && (
-                                <DotIcon 
-                                  sx={{ 
-                                    color: 'primary.main',
-                                    fontSize: 8
-                                  }} 
-                                />
-                              )}
-                            </Box>
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: 'text.secondary',
+                                fontSize: '0.7rem'
+                              }}
+                            >
+                              {formatTime(conversation.last_message_time)}
+                            </Typography>
                           </Box>
                         }
                         secondary={
                           <Box sx={{ mt: 0.5 }}>
-                            {/* 🔥 BOLD LAST MESSAGE for unread conversations */}
                             <Typography 
                               variant="body2" 
                               noWrap
                               sx={{ 
-                                fontWeight: hasUnreadMessages ? '600' : '400', // Bold for unread
-                                color: hasUnreadMessages ? 'text.primary' : 'text.secondary',
+                                fontWeight: '400',
+                                color: 'text.secondary',
                                 fontSize: '0.85rem',
                                 lineHeight: 1.3
                               }}

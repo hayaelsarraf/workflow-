@@ -19,7 +19,6 @@ export const ChatProvider = ({ children }) => {
   const [conversations, setConversations] = useState([]);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [messagesByConversation, setMessagesByConversation] = useState({});
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState([]);
 
@@ -37,7 +36,7 @@ export const ChatProvider = ({ children }) => {
         newSocket.emit('join_user_room', user.id);
       });
 
-      // 🔥 ENHANCED: Handle new messages with bold name updates
+      // Handle new messages
       newSocket.on('new_message', (message) => {
         console.log('📨 New message received:', message);
         
@@ -49,7 +48,7 @@ export const ChatProvider = ({ children }) => {
           [otherUserId]: [...(prev[otherUserId] || []), message]
         }));
         
-        // Enhanced conversation management for bold names
+        // Update conversations list
         if (message.recipient_id === user.id) {
           console.log('📋 Received new message, updating conversation list...');
           
@@ -66,30 +65,25 @@ export const ChatProvider = ({ children }) => {
                 other_user_role: 'member',
                 last_message: message.message_text,
                 last_message_time: message.created_at,
-                last_sender_id: message.sender_id,
-                unread_count: 1 // 🔥 This makes the name bold
+                last_sender_id: message.sender_id
               };
               
               return [newConversation, ...prev];
             } else {
-              // Update existing conversation with unread count for bold styling
+              // Update existing conversation
               return prev.map(conv => 
                 conv.other_user_id === message.sender_id
                   ? {
                       ...conv,
                       last_message: message.message_text,
                       last_message_time: message.created_at,
-                      last_sender_id: message.sender_id,
-                      unread_count: conv.unread_count + 1 // 🔥 Increment for bold
+                      last_sender_id: message.sender_id
                     }
                   : conv
               ).sort((a, b) => new Date(b.last_message_time) - new Date(a.last_message_time));
             }
           });
         }
-        
-        // Update unread count
-        fetchUnreadCount();
       });
 
       newSocket.on('message_sent', (message) => {
@@ -117,8 +111,7 @@ export const ChatProvider = ({ children }) => {
               other_user_role: 'member',
               last_message: message.message_text,
               last_message_time: message.created_at,
-              last_sender_id: message.sender_id,
-              unread_count: 0 // No unread for sent messages
+              last_sender_id: message.sender_id
             };
             
             return [newConversation, ...prev];
@@ -146,7 +139,7 @@ export const ChatProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Fetch conversations with enhanced error handling
+  // Fetch conversations
   const fetchConversations = useCallback(async () => {
     if (!user) return;
     
@@ -187,23 +180,7 @@ export const ChatProvider = ({ children }) => {
     }
   }, [user]);
 
-  // Fetch unread count
-  const fetchUnreadCount = useCallback(async () => {
-    if (!user) return;
-    
-    try {
-      const response = await axios.get('http://localhost:5000/api/chat/unread-count', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setUnreadCount(response.data.unread_count);
-    } catch (error) {
-      console.error('Failed to fetch unread count:', error);
-    }
-  }, [user]);
-
-  // Open conversation with enhanced user data handling
+  // Open conversation - WhatsApp-like behavior
   const openConversation = async (userId, userData = null) => {
     try {
       setLoading(true);
@@ -275,22 +252,13 @@ export const ChatProvider = ({ children }) => {
         }));
       }
 
-      // 🔥 Mark messages as read and remove bold styling
+      // Mark messages as read
       await axios.put(`http://localhost:5000/api/chat/mark-read/${userId}`, {}, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
 
-      // Update conversation to remove unread count (removes bold)
-      setConversations(prev => prev.map(conv => 
-        conv.other_user_id === parseInt(userId) 
-          ? { ...conv, unread_count: 0 }
-          : conv
-      ));
-
-      // Refresh unread count
-      fetchUnreadCount();
     } catch (error) {
       console.error('Failed to open conversation:', error);
     } finally {
@@ -298,7 +266,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Send message
+  // Send message - WhatsApp-like behavior
   const sendMessage = async (recipientId, messageText) => {
     try {
       const response = await axios.post('http://localhost:5000/api/chat/send', {
@@ -311,10 +279,49 @@ export const ChatProvider = ({ children }) => {
       });
 
       const newMessage = response.data.message;
+      
+      // Add message to conversation storage
       setMessagesByConversation(prev => ({
         ...prev,
         [recipientId]: [...(prev[recipientId] || []), newMessage]
       }));
+
+      //  WHATSAPP-LIKE BEHAVIOR: Immediately add conversation to left sidebar
+      setConversations(prev => {
+        const existingConversation = prev.find(conv => conv.other_user_id === recipientId);
+        
+        if (!existingConversation) {
+          console.log('➕ Adding new conversation to sidebar for sent message to user:', recipientId);
+          
+          // Find the recipient user data
+          const recipientUser = users.find(u => u.id === parseInt(recipientId));
+          
+          const newConversation = {
+            other_user_id: recipientId,
+            other_user_first_name: recipientUser?.first_name || 'User',
+            other_user_last_name: recipientUser?.last_name || '',
+            other_user_email: recipientUser?.email || '',
+            other_user_role: recipientUser?.role || 'member',
+            last_message: messageText,
+            last_message_time: newMessage.created_at,
+            last_sender_id: user.id
+          };
+          
+          return [newConversation, ...prev];
+        } else {
+          // Update existing conversation
+          return prev.map(conv => 
+            conv.other_user_id === recipientId
+              ? {
+                  ...conv,
+                  last_message: messageText,
+                  last_message_time: newMessage.created_at,
+                  last_sender_id: user.id
+                }
+              : conv
+          ).sort((a, b) => new Date(b.last_message_time) - new Date(a.last_message_time));
+        }
+      });
 
       return newMessage;
     } catch (error) {
@@ -323,7 +330,7 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Send file message
+  // Send file message - WhatsApp-like behavior
   const sendFileMessage = async (recipientId, file, messageText = '') => {
     try {
       const formData = new FormData();
@@ -339,10 +346,49 @@ export const ChatProvider = ({ children }) => {
       });
 
       const newMessage = response.data.message;
+      
+      // Add message to conversation storage
       setMessagesByConversation(prev => ({
         ...prev,
         [recipientId]: [...(prev[recipientId] || []), newMessage]
       }));
+
+      //  WHATSAPP-LIKE BEHAVIOR: Immediately add conversation to left sidebar
+      setConversations(prev => {
+        const existingConversation = prev.find(conv => conv.other_user_id === recipientId);
+        
+        if (!existingConversation) {
+          console.log('➕ Adding new conversation to sidebar for sent file to user:', recipientId);
+          
+          // Find the recipient user data
+          const recipientUser = users.find(u => u.id === parseInt(recipientId));
+          
+          const newConversation = {
+            other_user_id: recipientId,
+            other_user_first_name: recipientUser?.first_name || 'User',
+            other_user_last_name: recipientUser?.last_name || '',
+            other_user_email: recipientUser?.email || '',
+            other_user_role: recipientUser?.role || 'member',
+            last_message: messageText || `📎 ${file.name}`,
+            last_message_time: newMessage.created_at,
+            last_sender_id: user.id
+          };
+          
+          return [newConversation, ...prev];
+        } else {
+          // Update existing conversation
+          return prev.map(conv => 
+            conv.other_user_id === recipientId
+              ? {
+                  ...conv,
+                  last_message: messageText || `📎 ${file.name}`,
+                  last_message_time: newMessage.created_at,
+                  last_sender_id: user.id
+                }
+              : conv
+          ).sort((a, b) => new Date(b.last_message_time) - new Date(a.last_message_time));
+        }
+      });
 
       return newMessage;
     } catch (error) {
@@ -368,24 +414,21 @@ export const ChatProvider = ({ children }) => {
     if (user) {
       fetchConversations();
       fetchUsers();
-      fetchUnreadCount();
     }
-  }, [user, fetchConversations, fetchUsers, fetchUnreadCount]);
+  }, [user, fetchConversations, fetchUsers]);
 
   const value = {
     socket,
     conversations,
     currentConversation,
     messages: getCurrentMessages(),
-    unreadCount,
     loading,
     users,
     openConversation,
     sendMessage,
     sendFileMessage,
     closeConversation,
-    fetchConversations,
-    fetchUnreadCount
+    fetchConversations
   };
 
   return (

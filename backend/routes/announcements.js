@@ -1,13 +1,51 @@
 const express = require('express');
 const Announcement = require('../models/Announcement');
 const { authenticate } = require('../middleware/auth');
+
 const router = express.Router();
 
-// Create announcement (managers and admins only)
+// Get all announcements for the current user
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const announcementModel = new Announcement(req.db);
+    const announcements = await announcementModel.getAllForUser(req.user.id, req.user.role);
+
+    res.json({
+      success: true,
+      announcements
+    });
+  } catch (error) {
+    console.error('Get announcements error:', error);
+    res.status(500).json({ error: 'Failed to fetch announcements' });
+  }
+});
+
+// Get announcement by ID
+router.get('/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const announcementModel = new Announcement(req.db);
+    const announcement = await announcementModel.getById(parseInt(id));
+
+    if (!announcement) {
+      return res.status(404).json({ error: 'Announcement not found' });
+    }
+
+    res.json({
+      success: true,
+      announcement
+    });
+  } catch (error) {
+    console.error('Get announcement error:', error);
+    res.status(500).json({ error: 'Failed to fetch announcement' });
+  }
+});
+
+// Create new announcement (managers and admins only)
 router.post('/', authenticate, async (req, res) => {
   try {
-    // Check if user can create announcements
-    if (!['manager', 'admin'].includes(req.user.role)) {
+    // Check if user has permission to create announcements
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
       return res.status(403).json({ error: 'Only managers and admins can create announcements' });
     }
 
@@ -21,12 +59,25 @@ router.post('/', authenticate, async (req, res) => {
       target_audience = 'all'
     } = req.body;
 
+    // Validate required fields
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content are required' });
     }
 
+    // Validate announcement type
+    const validTypes = ['general', 'course_enrollment', 'urgent'];
+    if (!validTypes.includes(announcement_type)) {
+      return res.status(400).json({ error: 'Invalid announcement type' });
+    }
+
+    // Validate target audience
+    const validAudiences = ['all', 'members', 'managers'];
+    if (!validAudiences.includes(target_audience)) {
+      return res.status(400).json({ error: 'Invalid target audience' });
+    }
+
     const announcementModel = new Announcement(req.db);
-    const announcement = await announcementModel.createAnnouncement({
+    const announcement = await announcementModel.create({
       sender_id: req.user.id,
       title,
       content,
@@ -36,14 +87,6 @@ router.post('/', authenticate, async (req, res) => {
       course_start_date,
       target_audience
     });
-
-    // Emit to Socket.IO for real-time notifications
-    if (req.app.get('io')) {
-      req.app.get('io').emit('new_announcement', {
-        ...announcement,
-        for_role: target_audience
-      });
-    }
 
     res.status(201).json({
       success: true,
@@ -55,140 +98,56 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-// Get announcements for current user
-router.get('/', authenticate, async (req, res) => {
-  try {
-    const { limit = 20, offset = 0 } = req.query;
-
-    const announcementModel = new Announcement(req.db);
-    const announcements = await announcementModel.getAnnouncementsForUser(
-      req.user.id,
-      parseInt(limit),
-      parseInt(offset)
-    );
-
-    res.json({
-      success: true,
-      announcements
-    });
-  } catch (error) {
-    console.error('Get announcements error:', error);
-    res.status(500).json({ error: 'Failed to fetch announcements' });
-  }
-});
-
-// Get my announcements (for managers)
-router.get('/my-announcements', authenticate, async (req, res) => {
-  try {
-    if (!['manager', 'admin'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const { limit = 20, offset = 0 } = req.query;
-
-    const announcementModel = new Announcement(req.db);
-    const announcements = await announcementModel.getMyAnnouncements(
-      req.user.id,
-      parseInt(limit),
-      parseInt(offset)
-    );
-
-    res.json({
-      success: true,
-      announcements
-    });
-  } catch (error) {
-    console.error('Get my announcements error:', error);
-    res.status(500).json({ error: 'Failed to fetch announcements' });
-  }
-});
-
-// Mark announcement as viewed
-router.put('/:id/view', authenticate, async (req, res) => {
+// Update announcement (only the sender can update)
+router.put('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
+    const {
+      title,
+      content,
+      announcement_type,
+      course_name,
+      course_description,
+      course_start_date,
+      target_audience
+    } = req.body;
 
-    const announcementModel = new Announcement(req.db);
-    await announcementModel.markAsViewed(parseInt(id), req.user.id);
-
-    res.json({
-      success: true,
-      message: 'Announcement marked as viewed'
-    });
-  } catch (error) {
-    console.error('Mark as viewed error:', error);
-    res.status(500).json({ error: 'Failed to mark as viewed' });
-  }
-});
-
-// Show interest in course
-router.post('/:id/interest', authenticate, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { interest_level = 'interested', message = '' } = req.body;
-
-    const announcementModel = new Announcement(req.db);
-    const result = await announcementModel.showCourseInterest(
-      parseInt(id),
-      req.user.id,
-      { interest_level, message }
-    );
-
-    // Emit to Socket.IO for real-time updates
-    if (req.app.get('io')) {
-      req.app.get('io').emit('course_interest_updated', {
-        announcement_id: parseInt(id),
-        user_id: req.user.id,
-        user_name: `${req.user.first_name} ${req.user.last_name}`,
-        interest_level,
-        total_interested: result.total_interested
-      });
+    // Validate required fields
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content are required' });
     }
 
-    res.json({
-      success: true,
-      message: 'Interest recorded successfully',
-      total_interested: result.total_interested
-    });
-  } catch (error) {
-    console.error('Show course interest error:', error);
-    res.status(500).json({ error: 'Failed to record interest' });
-  }
-});
-
-// Get course interests (for managers)
-router.get('/:id/interests', authenticate, async (req, res) => {
-  try {
-    if (!['manager', 'admin'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const { id } = req.params;
-
     const announcementModel = new Announcement(req.db);
-    const interests = await announcementModel.getCourseInterests(parseInt(id));
+    const announcement = await announcementModel.update(parseInt(id), {
+      title,
+      content,
+      announcement_type,
+      course_name,
+      course_description,
+      course_start_date,
+      target_audience
+    }, req.user.id);
 
     res.json({
       success: true,
-      interests
+      announcement
     });
   } catch (error) {
-    console.error('Get course interests error:', error);
-    res.status(500).json({ error: 'Failed to fetch course interests' });
+    console.error('Update announcement error:', error);
+    if (error.message === 'Announcement not found or not authorized') {
+      return res.status(404).json({ error: error.message });
+    }
+    res.status(500).json({ error: 'Failed to update announcement' });
   }
 });
 
-// Delete announcement
+// Delete announcement (only the sender can delete)
 router.delete('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
-
     const announcementModel = new Announcement(req.db);
-    const deleted = await announcementModel.deleteAnnouncement(parseInt(id), req.user.id);
-
-    if (!deleted) {
-      return res.status(404).json({ error: 'Announcement not found or not authorized' });
-    }
+    
+    await announcementModel.delete(parseInt(id), req.user.id);
 
     res.json({
       success: true,
@@ -196,7 +155,33 @@ router.delete('/:id', authenticate, async (req, res) => {
     });
   } catch (error) {
     console.error('Delete announcement error:', error);
+    if (error.message === 'Announcement not found or not authorized') {
+      return res.status(404).json({ error: error.message });
+    }
     res.status(500).json({ error: 'Failed to delete announcement' });
+  }
+});
+
+// Get announcements by sender (for managers to see their own announcements)
+router.get('/sender/:senderId', authenticate, async (req, res) => {
+  try {
+    const { senderId } = req.params;
+    
+    // Only allow users to see their own announcements or admins to see all
+    if (req.user.role !== 'admin' && req.user.id !== parseInt(senderId)) {
+      return res.status(403).json({ error: 'Not authorized to view these announcements' });
+    }
+
+    const announcementModel = new Announcement(req.db);
+    const announcements = await announcementModel.getBySender(parseInt(senderId));
+
+    res.json({
+      success: true,
+      announcements
+    });
+  } catch (error) {
+    console.error('Get announcements by sender error:', error);
+    res.status(500).json({ error: 'Failed to fetch announcements' });
   }
 });
 

@@ -10,6 +10,8 @@ const announcementRoutes = require('./routes/announcements');
 
 const authRoutes = require('./routes/auth');
 const taskRoutes = require('./routes/tasks');
+const chatRoutes = require('./routes/chat');
+const announcementsRouter = require('./routes/announcements');
 
 const app = express();
 const server = http.createServer(app); 
@@ -71,8 +73,8 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes); 
 app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/chat', require('./routes/chat'));
-app.use('/api/announcements', announcementRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/announcements', announcementsRouter);
 
 
 

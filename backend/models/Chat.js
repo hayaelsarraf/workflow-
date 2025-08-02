@@ -6,6 +6,11 @@ class Chat {
   // Get conversation between two users
   async getConversation(userId1, userId2, limit = 50, offset = 0) {
     try {
+      const userId1Int = parseInt(userId1);
+      const userId2Int = parseInt(userId2);
+      const limitInt = parseInt(limit);
+      const offsetInt = parseInt(offset);
+
       const [messages] = await this.db.execute(
         `SELECT 
           m.*,
@@ -20,7 +25,7 @@ class Chat {
             OR (m.sender_id = ? AND m.recipient_id = ?)
          ORDER BY m.created_at DESC
          LIMIT ? OFFSET ?`,
-        [userId1, userId2, userId2, userId1, limit, offset]
+        [userId1Int, userId2Int, userId2Int, userId1Int, limitInt, offsetInt]
       );
 
       return messages.reverse();
@@ -30,9 +35,12 @@ class Chat {
     }
   }
 
-  // ✅ FIXED: Single getRecentConversations method with proper unread counting
+  // ✅ FIXED: Single getRecentConversations method with proper parameter handling
   async getRecentConversations(userId, limit = 20) {
     try {
+      const userIdInt = parseInt(userId);
+      const limitInt = parseInt(limit);
+
       const [conversations] = await this.db.execute(
         `SELECT 
           conversation_data.other_user_id,
@@ -96,10 +104,10 @@ class Chat {
          WHERE conversation_data.rn = 1
          ORDER BY conversation_data.last_message_time DESC
          LIMIT ?`,
-        [userId, userId, userId, userId, userId, userId, userId, userId, limit]
+        [userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, limitInt]
       );
 
-      console.log('📋 Fetched conversations for user', userId, ':', conversations.length);
+      console.log('📋 Fetched conversations for user', userIdInt, ':', conversations.length);
       return conversations;
     } catch (error) {
       console.error('Get recent conversations error:', error);
@@ -119,10 +127,13 @@ class Chat {
     } = messageData;
 
     try {
+      const senderIdInt = parseInt(sender_id);
+      const recipientIdInt = parseInt(recipient_id);
+
       const [result] = await this.db.execute(
         `INSERT INTO messages (sender_id, recipient_id, message_text, message_type, attachment_path, attachment_name)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [sender_id, recipient_id, message_text, message_type, attachment_path, attachment_name]
+        [senderIdInt, recipientIdInt, message_text, message_type, attachment_path, attachment_name]
       );
 
       const [messages] = await this.db.execute(
@@ -149,11 +160,14 @@ class Chat {
   // Mark messages as read
   async markAsRead(userId, otherUserId) {
     try {
+      const userIdInt = parseInt(userId);
+      const otherUserIdInt = parseInt(otherUserId);
+
       const [result] = await this.db.execute(
         `UPDATE messages 
          SET is_read = TRUE 
          WHERE recipient_id = ? AND sender_id = ? AND is_read = FALSE`,
-        [userId, otherUserId]
+        [userIdInt, otherUserIdInt]
       );
 
       return result.affectedRows;
@@ -166,11 +180,13 @@ class Chat {
   // Get unread message count
   async getUnreadCount(userId) {
     try {
+      const userIdInt = parseInt(userId);
+
       const [result] = await this.db.execute(
         `SELECT COUNT(*) as unread_count 
          FROM messages 
          WHERE recipient_id = ? AND is_read = FALSE`,
-        [userId]
+        [userIdInt]
       );
 
       return result[0].unread_count;
@@ -183,10 +199,13 @@ class Chat {
   // Delete a message
   async deleteMessage(messageId, userId) {
     try {
+      const messageIdInt = parseInt(messageId);
+      const userIdInt = parseInt(userId);
+
       const [result] = await this.db.execute(
         `DELETE FROM messages 
          WHERE id = ? AND sender_id = ?`,
-        [messageId, userId]
+        [messageIdInt, userIdInt]
       );
 
       return result.affectedRows > 0;

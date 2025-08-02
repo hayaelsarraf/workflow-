@@ -3,35 +3,38 @@ class Announcement {
     this.db = db;
   }
 
-  // Create new announcement
-  async createAnnouncement(announcementData) {
-    const {
-      sender_id,
-      title,
-      content,
-      announcement_type = 'general',
-      course_name = null,
-      course_description = null,
-      course_start_date = null,
-      target_audience = 'all'
-    } = announcementData;
-
+  // Create a new announcement
+  async create(announcementData) {
     try {
+      const {
+        sender_id,
+        title,
+        content,
+        announcement_type = 'general',
+        course_name = null,
+        course_description = null,
+        course_start_date = null
+      } = announcementData;
+
+      // ✅ FIXED: Handle empty string dates properly
+      const processedCourseStartDate = course_start_date && course_start_date.trim() !== '' 
+        ? course_start_date 
+        : null;
+
       const [result] = await this.db.execute(
-        `INSERT INTO announcements 
-         (sender_id, title, content, announcement_type, course_name, course_description, course_start_date, target_audience)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sender_id, title, content, announcement_type, course_name, course_description, course_start_date, target_audience]
+        `INSERT INTO announcements (
+          sender_id, title, content, announcement_type, 
+          course_name, course_description, course_start_date, target_audience
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'all')`,
+        [sender_id, title, content, announcement_type, course_name, course_description, processedCourseStartDate]
       );
 
-      // Get the created announcement with sender info
       const [announcements] = await this.db.execute(
         `SELECT 
           a.*,
           u.first_name as sender_first_name,
           u.last_name as sender_last_name,
-          u.email as sender_email,
-          u.role as sender_role
+          u.email as sender_email
          FROM announcements a
          JOIN users u ON a.sender_id = u.id
          WHERE a.id = ?`,
@@ -45,33 +48,26 @@ class Announcement {
     }
   }
 
-  // Get announcements for user
-  async getAnnouncementsForUser(userId, limit = 20, offset = 0) {
+  // Get all announcements for a user based on their role
+  async getAllForUser(userId, userRole) {
     try {
-      const [announcements] = await this.db.execute(
-        `SELECT 
+      let query = `
+        SELECT 
           a.*,
           u.first_name as sender_first_name,
           u.last_name as sender_last_name,
-          u.role as sender_role,
-          av.viewed_at,
-          CASE WHEN av.user_id IS NOT NULL THEN TRUE ELSE FALSE END as is_viewed,
-          ci.interest_level,
-          ci.message as interest_message,
-          (SELECT COUNT(*) FROM course_interests WHERE announcement_id = a.id) as total_interested
+          u.email as sender_email
          FROM announcements a
          JOIN users u ON a.sender_id = u.id
-         LEFT JOIN announcement_views av ON a.id = av.announcement_id AND av.user_id = ?
-         LEFT JOIN course_interests ci ON a.id = ci.announcement_id AND ci.user_id = ?
          WHERE a.is_active = TRUE
-           AND (a.target_audience = 'all' 
-                OR (a.target_audience = 'members' AND (SELECT role FROM users WHERE id = ?) = 'member')
-                OR (a.target_audience = 'managers' AND (SELECT role FROM users WHERE id = ?) IN ('manager', 'admin')))
-         ORDER BY a.created_at DESC
-         LIMIT ? OFFSET ?`,
-        [userId, userId, userId, userId, limit, offset]
-      );
+      `;
 
+      const params = [];
+
+      // ✅ FIXED: Simplified filtering - all users can see all announcements
+      query += ` ORDER BY a.created_at DESC`;
+
+      const [announcements] = await this.db.execute(query, params);
       return announcements;
     } catch (error) {
       console.error('Get announcements error:', error);
@@ -79,109 +75,106 @@ class Announcement {
     }
   }
 
-  // Mark announcement as viewed
-  async markAsViewed(announcementId, userId) {
-    try {
-      await this.db.execute(
-        `INSERT IGNORE INTO announcement_views (announcement_id, user_id)
-         VALUES (?, ?)`,
-        [announcementId, userId]
-      );
-      return true;
-    } catch (error) {
-      console.error('Mark as viewed error:', error);
-      throw error;
-    }
-  }
-
-  // Show interest in course
-  async showCourseInterest(announcementId, userId, interestData) {
-    const { interest_level = 'interested', message = null } = interestData;
-
-    try {
-      await this.db.execute(
-        `INSERT INTO course_interests (announcement_id, user_id, interest_level, message)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE 
-         interest_level = VALUES(interest_level),
-         message = VALUES(message)`,
-        [announcementId, userId, interest_level, message]
-      );
-
-      // Get updated announcement with interest count
-      const [result] = await this.db.execute(
-        `SELECT 
-          a.*,
-          (SELECT COUNT(*) FROM course_interests WHERE announcement_id = a.id) as total_interested
-         FROM announcements a
-         WHERE a.id = ?`,
-        [announcementId]
-      );
-
-      return result[0];
-    } catch (error) {
-      console.error('Show course interest error:', error);
-      throw error;
-    }
-  }
-
-  // Get course interests for announcement (for managers)
-  async getCourseInterests(announcementId) {
-    try {
-      const [interests] = await this.db.execute(
-        `SELECT 
-          ci.*,
-          u.first_name,
-          u.last_name,
-          u.email
-         FROM course_interests ci
-         JOIN users u ON ci.user_id = u.id
-         WHERE ci.announcement_id = ?
-         ORDER BY ci.created_at DESC`,
-        [announcementId]
-      );
-
-      return interests;
-    } catch (error) {
-      console.error('Get course interests error:', error);
-      throw error;
-    }
-  }
-
-  // Get announcements created by user (for managers)
-  async getMyAnnouncements(userId, limit = 20, offset = 0) {
+  // Get announcement by ID
+  async getById(id) {
     try {
       const [announcements] = await this.db.execute(
         `SELECT 
           a.*,
-          (SELECT COUNT(*) FROM announcement_views WHERE announcement_id = a.id) as view_count,
-          (SELECT COUNT(*) FROM course_interests WHERE announcement_id = a.id) as interest_count
+          u.first_name as sender_first_name,
+          u.last_name as sender_last_name,
+          u.email as sender_email
          FROM announcements a
-         WHERE a.sender_id = ?
-         ORDER BY a.created_at DESC
-         LIMIT ? OFFSET ?`,
-        [userId, limit, offset]
+         JOIN users u ON a.sender_id = u.id
+         WHERE a.id = ? AND a.is_active = TRUE`,
+        [id]
       );
 
-      return announcements;
+      return announcements[0];
     } catch (error) {
-      console.error('Get my announcements error:', error);
+      console.error('Get announcement by ID error:', error);
       throw error;
     }
   }
 
-  // Delete announcement
-  async deleteAnnouncement(announcementId, userId) {
+  // Update announcement
+  async update(id, announcementData, userId) {
     try {
+      const {
+        title,
+        content,
+        announcement_type,
+        course_name,
+        course_description,
+        course_start_date
+      } = announcementData;
+
+      // ✅ FIXED: Handle empty string dates properly
+      const processedCourseStartDate = course_start_date && course_start_date.trim() !== '' 
+        ? course_start_date 
+        : null;
+
       const [result] = await this.db.execute(
-        `DELETE FROM announcements 
+        `UPDATE announcements 
+         SET title = ?, content = ?, announcement_type = ?, 
+             course_name = ?, course_description = ?, course_start_date = ?, 
+             updated_at = CURRENT_TIMESTAMP
          WHERE id = ? AND sender_id = ?`,
-        [announcementId, userId]
+        [title, content, announcement_type, course_name, course_description, 
+         processedCourseStartDate, id, userId]
       );
 
-      return result.affectedRows > 0;
+      if (result.affectedRows === 0) {
+        throw new Error('Announcement not found or not authorized');
+      }
+
+      return this.getById(id);
+    } catch (error) {
+      console.error('Update announcement error:', error);
+      throw error;
+    }
+  }
+
+  // Delete announcement (soft delete)
+  async delete(id, userId) {
+    try {
+      const [result] = await this.db.execute(
+        `UPDATE announcements 
+         SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND sender_id = ?`,
+        [id, userId]
+      );
+
+      if (result.affectedRows === 0) {
+        throw new Error('Announcement not found or not authorized');
+      }
+
+      return true;
     } catch (error) {
       console.error('Delete announcement error:', error);
+      throw error;
+    }
+  }
+
+  // Get announcements by sender
+  async getBySender(senderId) {
+    try {
+      const [announcements] = await this.db.execute(
+        `SELECT 
+          a.*,
+          u.first_name as sender_first_name,
+          u.last_name as sender_last_name,
+          u.email as sender_email
+         FROM announcements a
+         JOIN users u ON a.sender_id = u.id
+         WHERE a.sender_id = ? AND a.is_active = TRUE
+         ORDER BY a.created_at DESC`,
+        [senderId]
+      );
+
+      return announcements;
+    } catch (error) {
+      console.error('Get announcements by sender error:', error);
       throw error;
     }
   }

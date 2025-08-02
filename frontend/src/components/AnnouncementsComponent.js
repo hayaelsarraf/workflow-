@@ -1,534 +1,275 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
-  Paper,
-  Typography,
   Card,
   CardContent,
-  CardActions,
-  Button,
+  Typography,
   Chip,
+  Button,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   IconButton,
-  Badge,
+  Alert,
+  Divider,
   Grid,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAvatar,
-  Avatar,
-  Tooltip
+  Paper
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Announcement as AnnouncementIcon,
-  Course as CourseIcon,
-  ExpandMore as ExpandMoreIcon,
-  Visibility as ViewIcon,
-  People as PeopleIcon,
-  ThumbUp as InterestIcon,
+  Edit as EditIcon,
   Delete as DeleteIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { useAnnouncements } from '../contexts/AnnouncementContext';
 import { useAuth } from '../contexts/AuthContext';
 
-const AnnouncementsComponent = ({ isOpen, onClose }) => {
+const AnnouncementsComponent = () => {
   const { user } = useAuth();
-  const {
-    announcements,
-    myAnnouncements,
-    loading,
-    unreadCount,
-    createAnnouncement,
-    markAsViewed,
-    showCourseInterest,
-    getCourseInterests,
-    deleteAnnouncement
-  } = useAnnouncements();
-
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showInterestDialog, setShowInterestDialog] = useState(false);
-  const [showInterestsDialog, setShowInterestsDialog] = useState(false);
+  const { announcements, loading, deleteAnnouncement } = useAnnouncements();
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-  const [activeTab, setActiveTab] = useState('all'); // 'all' or 'my'
-  const [courseInterests, setCourseInterests] = useState([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [announcementToDelete, setAnnouncementToDelete] = useState(null);
 
-  // Form states
-  const [formData, setFormData] = useState({
-    title: '',
-    content: '',
-    announcement_type: 'general',
-    course_name: '',
-    course_description: '',
-    course_start_date: '',
-    target_audience: 'all'
-  });
-
-  const [interestData, setInterestData] = useState({
-    interest_level: 'interested',
-    message: ''
-  });
-
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      content: '',
-      announcement_type: 'general',
-      course_name: '',
-      course_description: '',
-      course_start_date: '',
-      target_audience: 'all'
-    });
+  const handleViewAnnouncement = (announcement) => {
+    setSelectedAnnouncement(announcement);
   };
 
-  const handleCreateAnnouncement = async () => {
+  const handleDeleteClick = (announcement) => {
+    setAnnouncementToDelete(announcement);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     try {
-      await createAnnouncement(formData);
-      setShowCreateDialog(false);
-      resetForm();
+      await deleteAnnouncement(announcementToDelete.id);
+      setDeleteDialogOpen(false);
+      setAnnouncementToDelete(null);
     } catch (error) {
-      console.error('Failed to create announcement:', error);
+      console.error('Failed to delete announcement:', error);
     }
   };
 
-  const handleMarkAsViewed = async (announcementId) => {
-    await markAsViewed(announcementId);
-  };
-
-  const handleShowInterest = async () => {
-    try {
-      await showCourseInterest(selectedAnnouncement.id, interestData);
-      setShowInterestDialog(false);
-      setInterestData({ interest_level: 'interested', message: '' });
-    } catch (error) {
-      console.error('Failed to show interest:', error);
-    }
-  };
-
-  const handleViewInterests = async (announcement) => {
-    try {
-      const interests = await getCourseInterests(announcement.id);
-      setCourseInterests(interests);
-      setSelectedAnnouncement(announcement);
-      setShowInterestsDialog(true);
-    } catch (error) {
-      console.error('Failed to fetch course interests:', error);
+  const getAnnouncementTypeColor = (type) => {
+    switch (type) {
+      case 'urgent': return 'error';
+      case 'course_enrollment': return 'info';
+      default: return 'default';
     }
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
-  const getAnnouncementIcon = (type) => {
-    switch (type) {
-      case 'course_enrollment':
-        return <CourseIcon />;
-      default:
-        return <AnnouncementIcon />;
-    }
-  };
+  const canManageAnnouncements = user?.role === 'admin' || user?.role === 'manager';
 
-  const getAnnouncementColor = (type) => {
-    switch (type) {
-      case 'course_enrollment':
-        return 'success';
-      case 'urgent':
-        return 'error';
-      default:
-        return 'info';
-    }
-  };
-
-  if (!isOpen) return null;
+  if (loading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography>Loading announcements...</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <Dialog 
-      open={isOpen} 
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-      PaperProps={{
-        sx: { height: '80vh', display: 'flex', flexDirection: 'column' }
-      }}
-    >
-      <DialogTitle>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box display="flex" alignItems="center" gap={1}>
-            <Badge badgeContent={unreadCount} color="error">
-              <AnnouncementIcon color="primary" />
-            </Badge>
-            <Typography variant="h6">Announcements</Typography>
-          </Box>
-          <Box>
-            {['manager', 'admin'].includes(user.role) && (
-              <>
-                <Button
-                  onClick={() => setActiveTab('all')}
-                  variant={activeTab === 'all' ? 'contained' : 'outlined'}
-                  size="small"
-                  sx={{ mr: 1 }}
-                >
-                  All Announcements
-                </Button>
-                <Button
-                  onClick={() => setActiveTab('my')}
-                  variant={activeTab === 'my' ? 'contained' : 'outlined'}
-                  size="small"
-                  sx={{ mr: 1 }}
-                >
-                  My Announcements
-                </Button>
-                <Button
-                  startIcon={<AddIcon />}
-                  onClick={() => setShowCreateDialog(true)}
-                  variant="contained"
-                  size="small"
-                  sx={{ mr: 1 }}
-                >
-                  Create
-                </Button>
-              </>
-            )}
-            <IconButton onClick={onClose}>
-              <CloseIcon />
-            </IconButton>
-          </Box>
-        </Box>
-      </DialogTitle>
+    <Paper sx={{ p: 3, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+        <AnnouncementIcon color="primary" />
+        <Typography variant="h6">Announcements</Typography>
+      </Box>
 
-      <DialogContent sx={{ flex: 1, overflow: 'auto' }}>
+      {announcements.length === 0 ? (
+        <Card>
+          <CardContent sx={{ textAlign: 'center', py: 4 }}>
+            <AnnouncementIcon sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
+            <Typography variant="h6" color="textSecondary" gutterBottom>
+              No Announcements
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              {canManageAnnouncements 
+                ? 'Create your first announcement to keep your team informed.'
+                : 'No announcements have been posted yet.'
+              }
+            </Typography>
+          </CardContent>
+        </Card>
+      ) : (
         <Grid container spacing={2}>
-          {(activeTab === 'all' ? announcements : myAnnouncements).map((announcement) => (
-            <Grid item xs={12} key={announcement.id}>
-              <Card
-                sx={{
-                  border: announcement.is_viewed === false ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                  bgcolor: announcement.is_viewed === false ? 'rgba(25, 118, 210, 0.02)' : 'white'
+          {announcements.map((announcement) => (
+            <Grid item xs={12} md={6} key={announcement.id}>
+              <Card 
+                sx={{ 
+                  height: '100%',
+                  border: announcement.announcement_type === 'urgent' ? '2px solid #f44336' : '1px solid #e0e0e0',
+                  '&:hover': {
+                    boxShadow: 2,
+                    transform: 'translateY(-2px)',
+                    transition: 'all 0.2s ease-in-out'
+                  }
                 }}
               >
                 <CardContent>
-                  <Box display="flex" alignItems="flex-start" justifyContent="space-between" mb={2}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      {getAnnouncementIcon(announcement.announcement_type)}
-                      <Typography variant="h6" fontWeight="bold">
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="h6" gutterBottom>
                         {announcement.title}
                       </Typography>
-                      {announcement.is_viewed === false && (
-                        <Chip label="NEW" size="small" color="primary" />
-                      )}
-                    </Box>
-                    <Box display="flex" gap={1}>
                       <Chip 
-                        label={announcement.announcement_type.replace('_', ' ')} 
-                        size="small" 
-                        color={getAnnouncementColor(announcement.announcement_type)}
+                        label={announcement.announcement_type} 
+                        color={getAnnouncementTypeColor(announcement.announcement_type)}
+                        size="small"
+                        sx={{ mb: 1 }}
                       />
-                      {activeTab === 'my' && (
+                    </Box>
+                    
+                    {canManageAnnouncements && (
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleViewAnnouncement(announcement)}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
                         <IconButton 
                           size="small" 
                           color="error"
-                          onClick={() => deleteAnnouncement(announcement.id)}
+                          onClick={() => handleDeleteClick(announcement)}
                         >
-                          <DeleteIcon />
+                          <DeleteIcon fontSize="small" />
                         </IconButton>
-                      )}
-                    </Box>
+                      </Box>
+                    )}
                   </Box>
 
-                  <Typography variant="body1" paragraph>
+                  <Typography 
+                    variant="body2" 
+                    color="textSecondary" 
+                    sx={{ 
+                      mb: 2,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}
+                  >
                     {announcement.content}
                   </Typography>
 
                   {announcement.announcement_type === 'course_enrollment' && announcement.course_name && (
-                    <Box sx={{ bgcolor: 'grey.50', p: 2, borderRadius: 1, mb: 2 }}>
-                      <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-                        📚 Course Details:
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2" gutterBottom>
+                        Course: {announcement.course_name}
                       </Typography>
-                      <Typography variant="body2" gutterBottom>
-                        <strong>Course:</strong> {announcement.course_name}
-                      </Typography>
-                      {announcement.course_description && (
-                        <Typography variant="body2" gutterBottom>
-                          <strong>Description:</strong> {announcement.course_description}
-                        </Typography>
-                      )}
                       {announcement.course_start_date && (
-                        <Typography variant="body2" gutterBottom>
-                          <strong>Start Date:</strong> {formatDate(announcement.course_start_date)}
+                        <Typography variant="body2">
+                          Start Date: {formatDate(announcement.course_start_date)}
                         </Typography>
                       )}
-                    </Box>
+                    </Alert>
                   )}
 
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="caption" color="textSecondary">
-                      By {announcement.sender_first_name} {announcement.sender_last_name} • {formatDate(announcement.created_at)}
+                      {formatDate(announcement.created_at)}
                     </Typography>
-                    
-                    {announcement.announcement_type === 'course_enrollment' && announcement.total_interested > 0 && (
-                      <Chip 
-                        icon={<PeopleIcon />}
-                        label={`${announcement.total_interested} interested`}
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                      />
-                    )}
+                    <Button 
+                      size="small" 
+                      onClick={() => handleViewAnnouncement(announcement)}
+                      startIcon={<VisibilityIcon />}
+                    >
+                      View Details
+                    </Button>
                   </Box>
                 </CardContent>
-
-                <CardActions>
-                  {!announcement.is_viewed && activeTab === 'all' && (
-                    <Button
-                      startIcon={<ViewIcon />}
-                      onClick={() => handleMarkAsViewed(announcement.id)}
-                      size="small"
-                    >
-                      Mark as Read
-                    </Button>
-                  )}
-
-                  {announcement.announcement_type === 'course_enrollment' && activeTab === 'all' && (
-                    <>
-                      {!announcement.interest_level ? (
-                        <Button
-                          startIcon={<InterestIcon />}
-                          onClick={() => {
-                            setSelectedAnnouncement(announcement);
-                            setShowInterestDialog(true);
-                          }}
-                          size="small"
-                          color="success"
-                        >
-                          Show Interest
-                        </Button>
-                      ) : (
-                        <Chip
-                          icon={<InterestIcon />}
-                          label={`You're ${announcement.interest_level}`}
-                          size="small"
-                          color="success"
-                        />
-                      )}
-                    </>
-                  )}
-
-                  {activeTab === 'my' && announcement.announcement_type === 'course_enrollment' && announcement.interest_count > 0 && (
-                    <Button
-                      startIcon={<PeopleIcon />}
-                      onClick={() => handleViewInterests(announcement)}
-                      size="small"
-                    >
-                      View Interests ({announcement.interest_count})
-                    </Button>
-                  )}
-                </CardActions>
               </Card>
             </Grid>
           ))}
         </Grid>
+      )}
 
-        {(activeTab === 'all' ? announcements : myAnnouncements).length === 0 && (
-          <Box textAlign="center" py={4}>
-            <AnnouncementIcon sx={{ fontSize: 60, color: 'grey.400', mb: 2 }} />
-            <Typography variant="h6" color="textSecondary" gutterBottom>
-              No announcements yet
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {activeTab === 'all' ? 'Check back later for updates' : 'Create your first announcement'}
-            </Typography>
-          </Box>
+      {/* View Announcement Dialog */}
+      <Dialog 
+        open={!!selectedAnnouncement} 
+        onClose={() => setSelectedAnnouncement(null)}
+        maxWidth="md"
+        fullWidth
+      >
+        {selectedAnnouncement && (
+          <>
+            <DialogTitle>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6">{selectedAnnouncement.title}</Typography>
+                <IconButton onClick={() => setSelectedAnnouncement(null)}>
+                  <CloseIcon />
+                </IconButton>
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Chip 
+                label={selectedAnnouncement.announcement_type} 
+                color={getAnnouncementTypeColor(selectedAnnouncement.announcement_type)}
+                sx={{ mb: 2 }}
+              />
+              
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                {selectedAnnouncement.content}
+              </Typography>
+
+              {selectedAnnouncement.announcement_type === 'course_enrollment' && selectedAnnouncement.course_name && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Course: {selectedAnnouncement.course_name}
+                  </Typography>
+                  {selectedAnnouncement.course_description && (
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      {selectedAnnouncement.course_description}
+                    </Typography>
+                  )}
+                  {selectedAnnouncement.course_start_date && (
+                    <Typography variant="body2">
+                      Start Date: {formatDate(selectedAnnouncement.course_start_date)}
+                    </Typography>
+                  )}
+                </Alert>
+              )}
+
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="caption" color="textSecondary">
+                Posted on {formatDate(selectedAnnouncement.created_at)}
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setSelectedAnnouncement(null)}>Close</Button>
+            </DialogActions>
+          </>
         )}
-      </DialogContent>
+      </Dialog>
 
-      {/* Create Announcement Dialog */}
-      <Dialog open={showCreateDialog} onClose={() => setShowCreateDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Create New Announcement</DialogTitle>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Announcement</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Title"
-                value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={4}
-                label="Content"
-                value={formData.content}
-                onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Type</InputLabel>
-                <Select
-                  value={formData.announcement_type}
-                  onChange={(e) => setFormData(prev => ({ ...prev, announcement_type: e.target.value }))}
-                >
-                  <MenuItem value="general">General</MenuItem>
-                  <MenuItem value="course_enrollment">Course Enrollment</MenuItem>
-                  <MenuItem value="urgent">Urgent</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Target Audience</InputLabel>
-                <Select
-                  value={formData.target_audience}
-                  onChange={(e) => setFormData(prev => ({ ...prev, target_audience: e.target.value }))}
-                >
-                  <MenuItem value="all">All Users</MenuItem>
-                  <MenuItem value="members">Members Only</MenuItem>
-                  <MenuItem value="managers">Managers Only</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {formData.announcement_type === 'course_enrollment' && (
-              <>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Course Name"
-                    value={formData.course_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, course_name: e.target.value }))}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={3}
-                    label="Course Description"
-                    value={formData.course_description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, course_description: e.target.value }))}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    type="date"
-                    label="Course Start Date"
-                    InputLabelProps={{ shrink: true }}
-                    value={formData.course_start_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, course_start_date: e.target.value }))}
-                  />
-                </Grid>
-              </>
-            )}
-          </Grid>
+          <Typography>
+            Are you sure you want to delete "{announcementToDelete?.title}"? This action cannot be undone.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowCreateDialog(false)}>Cancel</Button>
-          <Button onClick={handleCreateAnnouncement} variant="contained">
-            Create Announcement
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+            Delete
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Show Interest Dialog */}
-      <Dialog open={showInterestDialog} onClose={() => setShowInterestDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Show Interest in Course</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Interest Level</InputLabel>
-                <Select
-                  value={interestData.interest_level}
-                  onChange={(e) => setInterestData(prev => ({ ...prev, interest_level: e.target.value }))}
-                >
-                  <MenuItem value="interested">Interested</MenuItem>
-                  <MenuItem value="very_interested">Very Interested</MenuItem>
-                  <MenuItem value="maybe">Maybe</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Additional Message (Optional)"
-                value={interestData.message}
-                onChange={(e) => setInterestData(prev => ({ ...prev, message: e.target.value }))}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowInterestDialog(false)}>Cancel</Button>
-          <Button onClick={handleShowInterest} variant="contained" color="success">
-            Show Interest
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* View Course Interests Dialog */}
-      <Dialog open={showInterestsDialog} onClose={() => setShowInterestsDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Course Interests - {selectedAnnouncement?.course_name}</DialogTitle>
-        <DialogContent>
-          <List>
-            {courseInterests.map((interest) => (
-              <ListItem key={interest.id}>
-                <ListItemAvatar>
-                  <Avatar>{interest.first_name[0]}</Avatar>
-                </ListItemAvatar>
-                <ListItemText
-                  primary={`${interest.first_name} ${interest.last_name}`}
-                  secondary={
-                    <Box>
-                      <Chip 
-                        label={interest.interest_level.replace('_', ' ')} 
-                        size="small" 
-                        color="success" 
-                        sx={{ mr: 1 }}
-                      />
-                      {interest.message && (
-                        <Typography variant="body2" sx={{ mt: 1 }}>
-                          "{interest.message}"
-                        </Typography>
-                      )}
-                      <Typography variant="caption" color="textSecondary">
-                        Responded on {formatDate(interest.created_at)}
-                      </Typography>
-                    </Box>
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-          {courseInterests.length === 0 && (
-            <Typography variant="body2" color="textSecondary" textAlign="center" py={4}>
-              No interests yet
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowInterestsDialog(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-    </Dialog>
+    </Paper>
   );
 };
 
