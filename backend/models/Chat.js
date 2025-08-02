@@ -114,13 +114,15 @@ class Chat {
         sender_id,
         recipient_id,
         message_text,
-        attachment_url = null
+        message_type = 'text',
+        attachment_path = null,
+        attachment_name = null
       } = messageData;
 
       const [result] = await this.db.execute(
-        `INSERT INTO messages (sender_id, recipient_id, message_text, attachment_url, created_at)
-         VALUES (?, ?, ?, ?, NOW())`,
-        [sender_id, recipient_id, message_text, attachment_url]
+        `INSERT INTO messages (sender_id, recipient_id, message_text, message_type, attachment_path, attachment_name, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+        [sender_id, recipient_id, message_text, message_type, attachment_path, attachment_name]
       );
 
       // Get the created message with user details
