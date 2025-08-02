@@ -29,7 +29,7 @@ class Chat {
         [userId1Int, userId2Int, userId2Int, userId1Int, limitInt, offsetInt]
       );
 
-      return messages.reverse();
+      return messages.reverse(); // Return in chronological order
     } catch (error) {
       console.error('Get conversation error:', error);
       throw error;
@@ -100,36 +100,30 @@ class Chat {
         [userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, userIdInt, limitInt]
       );
 
-      console.log('📋 Fetched conversations for user', userIdInt, ':', conversations.length);
       return conversations;
     } catch (error) {
-      console.error('Get recent conversations error:', error);
+      console.error('Get conversations error:', error);
       throw error;
     }
   }
 
   // Send a message
   async sendMessage(messageData) {
-    const {
-      sender_id,
-      recipient_id,
-      message_text,
-      message_type = 'text',
-      attachment_path = null,
-      attachment_name = null
-    } = messageData;
-
     try {
-      // ✅ FIXED: Ensure parameters are properly converted to integers
-      const senderIdInt = parseInt(sender_id);
-      const recipientIdInt = parseInt(recipient_id);
+      const {
+        sender_id,
+        recipient_id,
+        message_text,
+        attachment_url = null
+      } = messageData;
 
       const [result] = await this.db.execute(
-        `INSERT INTO messages (sender_id, recipient_id, message_text, message_type, attachment_path, attachment_name)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [senderIdInt, recipientIdInt, message_text, message_type, attachment_path, attachment_name]
+        `INSERT INTO messages (sender_id, recipient_id, message_text, attachment_url, created_at)
+         VALUES (?, ?, ?, ?, NOW())`,
+        [sender_id, recipient_id, message_text, attachment_url]
       );
 
+      // Get the created message with user details
       const [messages] = await this.db.execute(
         `SELECT 
           m.*,
@@ -152,19 +146,14 @@ class Chat {
   }
 
   // Mark messages as read
-  async markAsRead(userId, otherUserId) {
+  async markAsRead(recipientId, senderId) {
     try {
-      // ✅ FIXED: Ensure parameters are properly converted to integers
-      const userIdInt = parseInt(userId);
-      const otherUserIdInt = parseInt(otherUserId);
-
       const [result] = await this.db.execute(
         `UPDATE messages 
-         SET is_read = TRUE 
+         SET is_read = TRUE, read_at = NOW()
          WHERE recipient_id = ? AND sender_id = ? AND is_read = FALSE`,
-        [userIdInt, otherUserIdInt]
+        [recipientId, senderId]
       );
-
       return result.affectedRows;
     } catch (error) {
       console.error('Mark as read error:', error);
@@ -172,42 +161,16 @@ class Chat {
     }
   }
 
-  // Get unread message count
+  // Get unread message count for a user
   async getUnreadCount(userId) {
     try {
-      // ✅ FIXED: Ensure parameters are properly converted to integers
-      const userIdInt = parseInt(userId);
-
       const [result] = await this.db.execute(
-        `SELECT COUNT(*) as unread_count 
-         FROM messages 
-         WHERE recipient_id = ? AND is_read = FALSE`,
-        [userIdInt]
+        'SELECT COUNT(*) as count FROM messages WHERE recipient_id = ? AND is_read = FALSE',
+        [userId]
       );
-
-      return result[0].unread_count;
+      return result[0].count;
     } catch (error) {
       console.error('Get unread count error:', error);
-      throw error;
-    }
-  }
-
-  // Delete a message
-  async deleteMessage(messageId, userId) {
-    try {
-      // ✅ FIXED: Ensure parameters are properly converted to integers
-      const messageIdInt = parseInt(messageId);
-      const userIdInt = parseInt(userId);
-
-      const [result] = await this.db.execute(
-        `DELETE FROM messages 
-         WHERE id = ? AND sender_id = ?`,
-        [messageIdInt, userIdInt]
-      );
-
-      return result.affectedRows > 0;
-    } catch (error) {
-      console.error('Delete message error:', error);
       throw error;
     }
   }

@@ -50,7 +50,7 @@ export const AnnouncementProvider = ({ children }) => {
 
   const updateAnnouncement = useCallback(async (id, announcementData) => {
     try {
-      const response = await axios.put(`/api/announcements/${id}`, announcementData, {
+      const response = await axios.put(`http://localhost:5000/api/announcements/${id}`, announcementData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       

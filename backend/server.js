@@ -63,6 +63,7 @@ const tasksRouter = require('./routes/tasks');
 const chatRouter = require('./routes/chat');
 const notificationsRouter = require('./routes/notifications');
 const announcementsRouter = require('./routes/announcements');
+const courseInterestsRouter = require('./routes/courseInterests');
 
 // Use routes
 app.use('/api/auth', authRouter);
@@ -70,6 +71,7 @@ app.use('/api/tasks', tasksRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/announcements', announcementsRouter);
+app.use('/api/course-interests', courseInterestsRouter);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
