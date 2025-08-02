@@ -8,9 +8,16 @@ import {
   Typography,
   Alert,
   Box,
-  CircularProgress
+  CircularProgress,
+  IconButton,
+  InputAdornment
 } from '@mui/material';
-import { CheckCircle, Error } from '@mui/icons-material';
+import { 
+  CheckCircle, 
+  Error,
+  Visibility,
+  VisibilityOff 
+} from '@mui/icons-material';
 import axios from 'axios';
 
 const ResetPassword = () => {
@@ -21,6 +28,8 @@ const ResetPassword = () => {
     password: '',
     confirmPassword: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -147,18 +156,20 @@ const ResetPassword = () => {
           <Box textAlign="center">
             <CheckCircle color="success" sx={{ fontSize: 64, mb: 2 }} />
             <Typography variant="h5" gutterBottom>
-              Password Reset Successful!
+              Password Reset Complete
             </Typography>
-            <Alert severity="success" sx={{ mb: 3 }}>
-              {message}
-            </Alert>
             <Typography variant="body1" color="textSecondary" paragraph>
-              Redirecting to login page in 3 seconds...
+              Your password has been successfully reset.
+            </Typography>
+            <Typography variant="body2" color="textSecondary" paragraph>
+              You will be redirected to the login page shortly...
             </Typography>
             <Button
+              variant="contained"
+              color="primary"
               component={Link}
               to="/login"
-              variant="contained"
+              sx={{ mt: 2 }}
             >
               Go to Login
             </Button>

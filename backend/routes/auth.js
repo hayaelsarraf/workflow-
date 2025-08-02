@@ -150,20 +150,26 @@ router.post('/forgot-password', [
       });
     }
 
+    // Generate a random token
     const resetToken = crypto.randomBytes(32).toString('hex');
+    // Create the hashed version for storage
     const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    // Token expires in 1 hour
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
+    // Delete any existing reset tokens for this user
     await req.db.execute(
       'DELETE FROM password_reset_tokens WHERE user_id = ?', 
       [user.id]
     );
 
+    // Store the hashed token
     await req.db.execute(
       'INSERT INTO password_reset_tokens (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)',
       [user.id, email, hashedToken, expiresAt]
     );
 
+    // Send the unhashed token in the email
     await sendPasswordResetEmail(email, resetToken, user.first_name);
 
     res.json({ 
@@ -194,53 +200,57 @@ router.post('/reset-password/:token', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ 
-        error: 'Invalid password format',
-        details: errors.array() 
-      });
+      return res.status(400).json({ error: 'Validation failed', details: errors.array() });
     }
 
     const { token } = req.params;
     const { password } = req.body;
 
+    // Hash the provided token for comparison
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    const [tokenResults] = await req.db.execute(
-      `SELECT rt.*, u.id as user_id, u.email, u.first_name 
-       FROM password_reset_tokens rt 
-       JOIN users u ON rt.user_id = u.id 
-       WHERE rt.token = ? AND rt.expires_at > NOW() AND rt.used = false`,
-      [hashedToken]
-    );
+    // Begin transaction
+    const connection = await req.db.getConnection();
+    await connection.beginTransaction();
 
-    if (tokenResults.length === 0) {
-      return res.status(400).json({ 
-        error: 'Invalid or expired reset token' 
-      });
+    try {
+      const [resetTokens] = await connection.execute(
+        'SELECT * FROM password_reset_tokens WHERE token = ? AND expires_at > NOW() AND used = 0 FOR UPDATE',
+        [hashedToken]
+      );
+
+      if (!resetTokens || resetTokens.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ error: 'Invalid or expired reset token' });
+      }
+
+      const resetToken = resetTokens[0];
+
+      // Get user and update password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      await connection.execute(
+        'UPDATE users SET password = ? WHERE id = ?',
+        [hashedPassword, resetToken.user_id]
+      );
+
+      await connection.execute(
+        'UPDATE password_reset_tokens SET used = 1 WHERE id = ?',
+        [resetToken.id]
+      );
+
+      await connection.commit();
+      res.json({ message: 'Password has been reset successfully' });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    const resetRecord = tokenResults[0];
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    await req.db.execute(
-      'UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?',
-      [hashedPassword, resetRecord.user_id]
-    );
-
-    await req.db.execute(
-      'UPDATE password_reset_tokens SET used = true WHERE id = ?',
-      [resetRecord.id]
-    );
-
-    res.json({ 
-      message: 'Password reset successful! You can now log in with your new password.' 
-    });
-
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(500).json({ 
-      error: 'Unable to reset password. Please try again.' 
-    });
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 
@@ -248,34 +258,39 @@ router.post('/reset-password/:token', [
 router.get('/reset-password/:token/verify', async (req, res) => {
   try {
     const { token } = req.params;
+    // Hash the provided token for comparison
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    const [tokenResults] = await req.db.execute(
-      `SELECT rt.expires_at, u.email, u.first_name 
-       FROM password_reset_tokens rt 
-       JOIN users u ON rt.user_id = u.id 
-       WHERE rt.token = ? AND rt.expires_at > NOW() AND rt.used = false`,
+    // Check if token exists and is not expired
+    const [resetTokens] = await req.db.execute(
+      'SELECT t.*, u.first_name, u.last_name, u.email FROM password_reset_tokens t ' +
+      'JOIN users u ON t.user_id = u.id ' +
+      'WHERE t.token = ? AND t.expires_at > NOW() AND t.used = 0',
       [hashedToken]
     );
 
-    if (tokenResults.length === 0) {
+    if (!resetTokens || resetTokens.length === 0) {
       return res.status(400).json({ 
-        error: 'Invalid or expired reset token',
-        valid: false 
+        valid: false, 
+        error: 'Invalid or expired reset token' 
       });
     }
 
-    res.json({ 
-      valid: true,
-      email: tokenResults[0].email,
-      firstName: tokenResults[0].first_name
-    });
+    const resetToken = resetTokens[0];
 
+    res.json({
+      valid: true,
+      user_id: resetToken.user_id,
+      first_name: resetToken.first_name,
+      last_name: resetToken.last_name,
+      email: resetToken.email,
+      expires_at: resetToken.expires_at
+    });
   } catch (error) {
-    console.error('Token verification error:', error);
+    console.error('Verify reset token error:', error);
     res.status(500).json({ 
-      error: 'Unable to verify token',
-      valid: false 
+      valid: false, 
+      error: 'Failed to verify reset token' 
     });
   }
 });

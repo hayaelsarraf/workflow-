@@ -17,8 +17,6 @@ import {
   Card,
   CardContent,
   Fab,
-  Tabs,
-  Tab
 } from '@mui/material';
 import { 
   Task, 
@@ -34,7 +32,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [chatOpen, setChatOpen] = useState(false);
   const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
 
   const getRoleColor = (role) => {
     switch (role) {
@@ -53,10 +50,6 @@ const Dashboard = () => {
   const handleChatOpen = () => {
     console.log('📱 Chat button clicked');
     setChatOpen(true);
-  };
-
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
   };
 
   const canManageAnnouncements = user?.role === 'admin' || user?.role === 'manager';
@@ -83,10 +76,6 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <Paper sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h5" gutterBottom>
-          Dashboard Overview
-        </Typography>
-
         {/* Quick Actions Section */}
         <Grid container spacing={3} sx={{ mt: 2, mb: 4 }}>
           <Grid item xs={12} md={6}>
@@ -151,23 +140,12 @@ const Dashboard = () => {
           </Grid>
         </Grid>
 
-        {/* Tabs for Announcements and Role-based content */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-          <Tabs value={activeTab} onChange={handleTabChange}>
-            <Tab 
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AnnouncementIcon />
-                  Announcements
-                </Box>
-              } 
-            />
-            <Tab label="Dashboard Info" />
-          </Tabs>
-        </Box>
-
-        {/* Tab Content */}
-        {activeTab === 0 && (
+        {/* Announcements Section */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+            <AnnouncementIcon />
+            Announcements
+          </Typography>
           <Box>
             {canManageAnnouncements && (
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
@@ -182,60 +160,7 @@ const Dashboard = () => {
             )}
             <AnnouncementsComponent />
           </Box>
-        )}
-
-        {activeTab === 1 && (
-          <Box>
-            {/* Role-based content */}
-            {user?.role === 'admin' && (
-              <Box>
-                <Typography variant="h6" color="error">
-                  Admin Dashboard - Full Access
-                </Typography>
-                <ul>
-                  <li>Manage all users</li>
-                  <li>System configuration</li>
-                  <li>Create and manage all tasks</li>
-                  <li>View all projects and tasks</li>
-                  <li>Analytics and reports</li>
-                  <li>Create and manage announcements</li>
-                </ul>
-              </Box>
-            )}
-            
-            {user?.role === 'manager' && (
-              <Box>
-                <Typography variant="h6" color="warning.main">
-                  Manager Dashboard - Project Management
-                </Typography>
-                <ul>
-                  <li>Create and assign tasks to team members</li>
-                  <li>Manage and monitor task progress</li>
-                  <li>View team analytics</li>
-                  <li>Manage team workflows</li>
-                  <li>Create and manage announcements</li>
-                  <li>Review task status updates</li>
-                </ul>
-              </Box>
-            )}
-            
-            {user?.role === 'member' && (
-              <Box>
-                <Typography variant="h6" color="info.main">
-                  Member Dashboard - Task Management
-                </Typography>
-                <ul>
-                  <li>View assigned tasks</li>
-                  <li>Update task status and progress</li>
-                  <li>Mark tasks as completed</li>
-                  <li>Collaborate with team members</li>
-                  <li>Track personal progress</li>
-                  <li>View announcements</li>
-                </ul>
-              </Box>
-            )}
-          </Box>
-        )}
+        </Box>
       </Paper>
 
       {/* Floating Action Button */}
