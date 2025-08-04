@@ -36,14 +36,22 @@ export const ChatProvider = ({ children }) => {
 
       newSocket.on('connect', () => {
         console.log('Socket connected');
-        newSocket.emit('join_user_room', user.id);
+        // Note: User room joining is handled automatically by the server
       });
 
       // Handle new direct messages
       newSocket.on('new_message', (message) => {
         console.log('📨 New direct message received:', message);
+        console.log('📨 Current user ID:', user.id, 'Message sender ID:', message.sender_id, 'Message recipient ID:', message.recipient_id);
         
-        const otherUserId = message.sender_id === user.id ? message.recipient_id : message.sender_id;
+        // Only process messages where the current user is the recipient
+        // (The sender should not receive this event, only message_sent confirmation)
+        if (message.recipient_id !== user.id) {
+          console.warn('⚠️ Received message not intended for this user, ignoring');
+          return;
+        }
+        
+        const otherUserId = message.sender_id; // Since we know we're the recipient, sender is the other user
         
         setMessagesByConversation(prev => ({
           ...prev,
@@ -60,7 +68,7 @@ export const ChatProvider = ({ children }) => {
               other_user_first_name: message.sender_first_name,
               other_user_last_name: message.sender_last_name,
               other_user_email: message.sender_email,
-              other_user_role: 'member',
+              other_user_role: message.sender_role || 'member',
               last_message: message.message_text,
               last_message_time: message.created_at,
               last_sender_id: message.sender_id
@@ -407,12 +415,13 @@ export const ChatProvider = ({ children }) => {
   };
 
   // Open a direct conversation
-  const openConversation = async (userId) => {
+  const openConversation = async (userId, conversationData = null) => {
     try {
       setLoading(true);
       console.log('👤 Opening conversation with user:', userId);
 
-      const conversation = conversations.find(c => c.other_user_id === userId);
+      // Use provided conversation data if available, otherwise find in existing conversations
+      const conversation = conversationData || conversations.find(c => c.other_user_id === userId);
       if (conversation) {
         setCurrentConversation(conversation);
         setCurrentGroup(null); // Close any open group chat
@@ -435,7 +444,7 @@ export const ChatProvider = ({ children }) => {
       // Get conversation messages if not already loaded
       if (!messagesByConversation[userId]) {
         console.log('📡 Fetching conversation messages...');
-        const response = await axios.get(`http://localhost:5000/api/chat/messages/${userId}`, {
+        const response = await axios.get(`http://localhost:5000/api/chat/conversation/${userId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
