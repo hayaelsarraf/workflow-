@@ -18,7 +18,7 @@ const authenticate = async (req, res, next) => {
     console.log('🔑 JWT decoded payload:', decoded); // Debug line
     
     // ✅ FIX: Use userId instead of id to match your JWT payload
-    const userId = decoded.userId; // Changed from decoded.id
+    const userId = decoded.id;
     
     console.log('👤 Looking for user ID:', userId); // Debug line
     
@@ -90,7 +90,7 @@ const optionalAuth = async (req, res, next) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
     const userModel = new User(req.db);
-    const user = await userModel.findById(decoded.userId);
+    const user = await userModel.findById(decoded.id);
     
     if (user && user.is_active) {
       const { password, ...userWithoutPassword } = user;

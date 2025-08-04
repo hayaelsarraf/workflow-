@@ -55,7 +55,13 @@ router.post('/register', [
       role 
     });
 
-    const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ 
+      id: userId,
+      first_name,
+      last_name,
+      email,
+      role
+    }, JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({
       success: true,
@@ -101,7 +107,13 @@ router.post('/login', [
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ 
+      id: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      role: user.role
+    }, JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
       token,
