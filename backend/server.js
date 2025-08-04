@@ -99,8 +99,12 @@ io.on('connection', (socket) => {
 
   // Automatically join user's personal room using authenticated user ID
   if (socket.userId) {
-    socket.join(`user_${socket.userId}`);
-    console.log(`👤 User ${socket.userId} joined their room`);
+    const roomName = `user_${socket.userId}`;
+    socket.join(roomName);
+    console.log(`👤 User ${socket.userId} joined their room: ${roomName}`);
+    
+    // Log all rooms this socket is in for debugging
+    console.log(`🏠 Socket ${socket.id} is in rooms:`, Array.from(socket.rooms));
     
     // Notify other users that this user is online
     socket.broadcast.emit('user_status', {
@@ -125,6 +129,7 @@ io.on('connection', (socket) => {
   socket.on('send_message', async (messageData) => {
     try {
       console.log('📨 Direct message received:', messageData);
+      console.log('📨 Sender ID:', socket.userId, 'Recipient ID:', messageData.recipient_id);
       
       // Validate message data
       if (!messageData.recipient_id || !messageData.message_text) {
@@ -133,6 +138,21 @@ io.on('connection', (socket) => {
 
       if (!socket.userId) {
         throw new Error('User not authenticated');
+      }
+
+      // Ensure sender is not trying to send to themselves
+      if (parseInt(socket.userId) === parseInt(messageData.recipient_id)) {
+        throw new Error('Cannot send message to yourself');
+      }
+
+      // Validate recipient exists and is active
+      const [recipientCheck] = await pool.execute(
+        'SELECT id, is_active FROM users WHERE id = ?',
+        [messageData.recipient_id]
+      );
+
+      if (!recipientCheck.length || !recipientCheck[0].is_active) {
+        throw new Error('Recipient not found or inactive');
       }
 
       // Create and save the message using Chat model
@@ -149,10 +169,13 @@ io.on('connection', (socket) => {
       const finalMessage = {
         ...savedMessage,
         sender_first_name: socket.user.first_name,
-        sender_last_name: socket.user.last_name
+        sender_last_name: socket.user.last_name,
+        sender_email: socket.user.email,
+        sender_role: socket.user.role
       };
 
-      // Send to recipient's room
+      // Send to recipient's room ONLY
+      console.log(`📤 Sending message to recipient room: user_${messageData.recipient_id}`);
       io.to(`user_${messageData.recipient_id}`).emit('new_message', finalMessage);
       
       // Send confirmation back to sender with the saved message
