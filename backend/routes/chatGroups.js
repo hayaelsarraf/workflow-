@@ -202,7 +202,7 @@ router.get('/:groupId/messages', authenticate, async (req, res) => {
     const { limit = 50, offset = 0 } = req.query;
     const chatGroup = new ChatGroup(req.db);
 
-    const messages = await chatGroup.getGroupMessages(groupId, limit, offset);
+    const messages = await chatGroup.getGroupMessages(groupId, req.user.id, limit, offset);
     res.json({ messages });
   } catch (error) {
     console.error('Get group messages error:', error);

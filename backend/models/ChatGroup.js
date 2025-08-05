@@ -96,24 +96,31 @@ class ChatGroup {
   }
 
   // Get messages for a group
-  async getGroupMessages(groupId, limit = 50, offset = 0) {
+ async getGroupMessages(groupId, userId, limit = 50, offset = 0) {
   try {
+    const isMember = await this.isGroupMember(groupId, userId);
+    const isManager = await this.isGroupManager(groupId, userId);
+
+    if (!isMember && !isManager) {
+      throw new Error('Access denied: You are not a member of this group.');
+    }
+
     const limitInt = parseInt(limit);
     const offsetInt = parseInt(offset);
 
     const [messages] = await this.db.execute(`
-      SELECT 
-        m.*,
-        u.id as sender_id,
-        u.first_name as sender_first_name,
-        u.last_name as sender_last_name,
-        CONCAT(u.first_name, ' ', u.last_name) as sender_name,
-        u.email as sender_email,
-        u.role as sender_role
-      FROM group_messages m
-      JOIN users u ON m.sender_id = u.id
-      WHERE m.group_id = ?
-      ORDER BY m.created_at DESC
+      SELECT  
+        m.*, 
+        u.id as sender_id, 
+        u.first_name as sender_first_name, 
+        u.last_name as sender_last_name, 
+        CONCAT(u.first_name, ' ', u.last_name) as sender_name, 
+        u.email as sender_email, 
+        u.role as sender_role 
+      FROM group_messages m 
+      JOIN users u ON m.sender_id = u.id 
+      WHERE m.group_id = ? 
+      ORDER BY m.created_at DESC 
       LIMIT ? OFFSET ?
     `, [groupId, limitInt, offsetInt]);
 
@@ -123,6 +130,7 @@ class ChatGroup {
     throw error;
   }
 }
+
 
   // Send a message to a group
   async sendGroupMessage(groupId, senderId, messageData) {
