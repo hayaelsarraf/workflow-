@@ -83,7 +83,7 @@ router.post('/', [
     }
 
     // Only managers can create groups
-    if (req.user.role !== 'manager' && req.user.role !== 'admin') {
+    if (req.user.role !== 'manager' && req.user.role !== 'member') {
       return res.status(403).json({ error: 'Only managers can create chat groups' });
     }
 

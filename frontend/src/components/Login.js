@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
+
+import {
+  Visibility,
+  VisibilityOff
+} from '@mui/icons-material';
+import InputAdornment from '@mui/material/InputAdornment';
+import IconButton from '@mui/material/IconButton';
+
 import {
   Container,
   Paper,
@@ -31,6 +39,8 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
   
   // Notification state
   const [showNotifications, setShowNotifications] = useState(false);
@@ -44,12 +54,10 @@ const Login = () => {
   const checkForNotifications = async () => {
     try {
       setLoadingNotifications(true);
-      console.log('🔍 Checking for new task assignments...');
       
       // ✅ Get token from localStorage (where auth context stores it)
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('❌ No token found, skipping notification check');
         navigate('/dashboard');
         return;
       }
@@ -65,14 +73,12 @@ const Login = () => {
         notification => notification.type === 'task_assigned'
       );
       
-      console.log(`📋 Found ${assignments.length} new task assignments`);
       setNewAssignments(assignments);
       
       // Only show dialog if notifications actually exist
       if (assignments.length > 0) {
         setShowNotifications(true);
       } else {
-        console.log('✅ No new assignments - navigating to dashboard');
         navigate('/dashboard');
       }
     } catch (error) {
@@ -96,7 +102,6 @@ const Login = () => {
 
       // Remove from list after viewing
       setNewAssignments(prev => prev.filter(n => n.id !== notification.id));
-      console.log('✅ Task marked as viewed:', notification.task_title);
     } catch (error) {
       console.error('❌ Failed to mark task as viewed:', error);
       setError('Failed to mark task as viewed');
@@ -110,9 +115,9 @@ const Login = () => {
     setLoading(true);
 
     try {
-      console.log('Attempting login...');
+     
       await login(email, password);
-      console.log('Login successful, checking notifications...');
+      
       await checkForNotifications();
     } catch (err) {
       console.error('Login error:', err);
@@ -123,7 +128,6 @@ const Login = () => {
 
   // User manually closes notification dialog
   const handleCloseNotifications = () => {
-    console.log('👤 User manually closed notifications dialog');
     setShowNotifications(false);
     navigate('/dashboard');
   };
@@ -132,7 +136,6 @@ const Login = () => {
   const handleViewAllTasks = async () => {
     try {
       const token = localStorage.getItem('token');
-      console.log(`📋 Marking ${newAssignments.length} tasks as viewed...`);
       
       // Mark all remaining assignments as viewed
       for (const notification of newAssignments) {
@@ -156,7 +159,6 @@ const Login = () => {
 
   // Skip notifications and go to dashboard
   const handleSkipNotifications = () => {
-    console.log('⏭️ User skipped notifications');
     setShowNotifications(false);
     navigate('/dashboard');
   };
@@ -203,14 +205,28 @@ const Login = () => {
             />
             
             <TextField
-              fullWidth
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
-              required
-            />
+            fullWidth
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            margin="normal"
+            required
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
+          />
+
             
             <Button
               type="submit"

@@ -95,12 +95,10 @@ const ChatComponent = ({ isOpen, onClose }) => {
     setSending(true);
 
     try {
-      // Check if selectedFile exists and sendFileMessage function is available
       if (selectedFile && typeof sendFileMessage === 'function') {
         await sendFileMessage(recipientId, selectedFile, messageText);
         setSelectedFile(null);
       } else {
-        // Send text message
         await sendMessage(recipientId, messageText.trim());
         console.log('✅ Message sent successfully');
       }
@@ -203,14 +201,6 @@ const ChatComponent = ({ isOpen, onClose }) => {
               <ChatIcon />
               <Typography variant="h6">Chat</Typography>
               <Box>
-                <Button
-                  variant={chatView === 'direct' ? 'contained' : 'outlined'}
-                  size="small"
-                  onClick={() => setChatView('direct')}
-                  sx={{ mr: 1 }}
-                >
-                  Direct Messages
-                </Button>
                 <Button
                   variant={chatView === 'groups' ? 'contained' : 'outlined'}
                   size="small"
@@ -473,7 +463,7 @@ const ChatComponent = ({ isOpen, onClose }) => {
                     </Box>
                   </Box>
 
-                  {/* Messages */}
+                  {/* Messages Area */}
                   <Box sx={{ flex: 1, overflowY: 'auto', p: 1, bgcolor: '#f8f9fa' }}>
                     {messages.length === 0 ? (
                       <Box sx={{ textAlign: 'center', mt: 4 }}>
@@ -486,11 +476,6 @@ const ChatComponent = ({ isOpen, onClose }) => {
                         const isMyMessage = message.sender_id === user.id;
                         const showDate = index === 0 || 
                           formatDate(message.created_at) !== formatDate(messages[index - 1].created_at);
-                        const showSender = currentGroup && (
-                          index === 0 || 
-                          messages[index - 1].sender_id !== message.sender_id ||
-                          showDate
-                        );
 
                         return (
                           <Box key={message.id}>
@@ -508,57 +493,108 @@ const ChatComponent = ({ isOpen, onClose }) => {
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: isMyMessage ? 'flex-end' : 'flex-start',
-                                mb: showSender ? 2 : 1,
+                                mb: 2,
                                 px: 1
                               }}
                             >
-                              {currentGroup && showSender && !isMyMessage && (
-                                <Typography 
-                                  variant="caption" 
-                                  sx={{ 
-                                    ml: 2,
-                                    mb: 0.5,
-                                    color: 'text.secondary'
-                                  }}
-                                >
-                                  {message.sender_name}
-                                </Typography>
-                              )}
-                              <Card
-                                sx={{
-                                  maxWidth: '70%',
-                                  bgcolor: isMyMessage ? '#dcf8c6' : 'white',
-                                  color: 'text.primary',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                                  borderRadius: isMyMessage ? '18px 18px 4px 18px' : '18px 18px 18px 4px'
-                                }}
-                              >
-                                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                                  <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                                    {message.message_text}
-                                  </Typography>
-                                  {message.message_type === 'file' && message.attachment_name && (
-                                    <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <AttachFileIcon fontSize="small" />
-                                      <Typography variant="caption">
-                                        {message.attachment_name}
-                                      </Typography>
-                                    </Box>
-                                  )}
+                              {/* Sender info - Only show for others' messages */}
+                              {!isMyMessage && (
+                                <Box sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center',
+                                  gap: 1,
+                                  mb: 0.5,
+                                  ml: 1
+                                }}>
+                                  <Avatar sx={{ 
+                                    width: 24, 
+                                    height: 24,
+                                    fontSize: '0.75rem',
+                                    bgcolor: 'grey.400'
+                                  }}>
+                                    {message.sender_first_name?.[0]?.toUpperCase()}
+                                  </Avatar>
                                   <Typography 
                                     variant="caption" 
                                     sx={{ 
-                                      display: 'block', 
-                                      textAlign: 'right', 
-                                      mt: 0.5,
                                       color: 'text.secondary',
-                                      fontSize: '0.7rem'
+                                      fontWeight: 500
                                     }}
                                   >
-                                    {formatTime(message.created_at)}
+                                    {message.sender_name || `${message.sender_first_name} ${message.sender_last_name}`}
                                   </Typography>
-                                </CardContent>
-                              </Card>
+                                </Box>
+                              )}
+
+                              {/* Message bubble with "You" indicator for my messages */}
+                              <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center',
+                                gap: 1,
+                                alignSelf: isMyMessage ? 'flex-end' : 'flex-start'
+                              }}>
+                                {isMyMessage && (
+                                  <Typography 
+                                    variant="caption" 
+                                    sx={{ 
+                                      color: 'primary.main',
+                                      fontWeight: 500,
+                                      mr: 1
+                                    }}
+                                  >
+                                    You:
+                                  </Typography>
+                                )}
+                                <Card
+                                  sx={{
+                                    minWidth: 'fit-content',
+                                    maxWidth: '70%',
+                                    bgcolor: isMyMessage ? '#dcf8c6' : 'white',
+                                    color: 'text.primary',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                    borderRadius: isMyMessage ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                                    '& .MuiCardContent-root': {
+                                      p: '12px !important',
+                                      '&:last-child': {
+                                        pb: '12px !important'
+                                      }
+                                    }
+                                  }}
+                                >
+                                  <CardContent>
+                                    <Typography 
+                                      variant="body2" 
+                                      sx={{ 
+                                        wordBreak: 'break-word',
+                                        whiteSpace: 'pre-wrap',
+                                        minWidth: 'fit-content'
+                                      }}
+                                    >
+                                      {message.message_text}
+                                    </Typography>
+                                    {message.message_type === 'file' && message.attachment_name && (
+                                      <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <AttachFileIcon fontSize="small" />
+                                        <Typography variant="caption">
+                                          {message.attachment_name}
+                                        </Typography>
+                                      </Box>
+                                    )}
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        display: 'block', 
+                                        textAlign: 'right', 
+                                        mt: 0.5,
+                                        color: 'text.secondary',
+                                        fontSize: '0.7rem'
+                                      }}
+                                    >
+                                      {formatTime(message.created_at)}
+                                    </Typography>
+                                  </CardContent>
+                                </Card>
+                              </Box>
                             </Box>
                           </Box>
                         );

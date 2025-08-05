@@ -13,8 +13,11 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid
+  Grid,
+  InputAdornment,
+  IconButton
 } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -27,7 +30,11 @@ const Register = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
+  // New States for toggling password visibility
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -43,7 +50,6 @@ const Register = () => {
     setLoading(true);
     setError('');
 
-    // Validation
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
@@ -64,7 +70,7 @@ const Register = () => {
         password: formData.password,
         role: formData.role
       };
-      
+
       await register(userData);
       navigate('/dashboard');
     } catch (error) {
@@ -80,9 +86,9 @@ const Register = () => {
         <Typography variant="h4" align="center" gutterBottom>
           Create Account
         </Typography>
-        
+
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        
+
         <Box component="form" onSubmit={handleSubmit}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
@@ -108,7 +114,7 @@ const Register = () => {
               />
             </Grid>
           </Grid>
-          
+
           <TextField
             fullWidth
             label="Email"
@@ -119,7 +125,7 @@ const Register = () => {
             margin="normal"
             required
           />
-          
+
           <FormControl fullWidth margin="normal">
             <InputLabel>Role</InputLabel>
             <Select
@@ -130,32 +136,57 @@ const Register = () => {
             >
               <MenuItem value="member">Member</MenuItem>
               <MenuItem value="manager">Manager</MenuItem>
-              <MenuItem value="admin">Admin</MenuItem>
             </Select>
           </FormControl>
-          
+
           <TextField
             fullWidth
             label="Password"
             name="password"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={formData.password}
             onChange={handleChange}
             margin="normal"
             required
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                  >
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
           />
-          
+
           <TextField
             fullWidth
             label="Confirm Password"
             name="confirmPassword"
-            type="password"
+            type={showConfirmPassword ? 'text' : 'password'}
             value={formData.confirmPassword}
             onChange={handleChange}
             margin="normal"
             required
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    edge="end"
+                  >
+                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              )
+            }}
           />
-          
+
           <Button
             type="submit"
             fullWidth
@@ -165,7 +196,7 @@ const Register = () => {
           >
             {loading ? 'Creating Account...' : 'Register'}
           </Button>
-          
+
           <Box textAlign="center">
             <Typography variant="body2">
               Already have an account?{' '}
